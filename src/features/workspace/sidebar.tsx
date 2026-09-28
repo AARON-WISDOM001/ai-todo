@@ -69,7 +69,10 @@ export function Sidebar({
   return (
     <nav
       aria-label="Task views"
-      className={cn('flex h-full w-[240px] flex-col border-r border-line bg-[rgba(253,249,244,0.95)]', className)}
+      className={cn(
+        'flex h-full w-[84vw] max-w-[320px] flex-col border-r border-line bg-[rgba(253,249,244,0.95)] lg:w-[240px] lg:max-w-none',
+        className,
+      )}
     >
       <div className="flex h-14 shrink-0 items-center gap-2.5 border-b border-line px-4">
         <Logo />

@@ -20,7 +20,12 @@ import { toGeminiSchema } from './json-schema.ts'
 /** Read once per cold start. Either provider env var is accepted. */
 const API_KEY = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? ''
 
-const MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash'
+/**
+ * Default model. Overridable with `GEMINI_MODEL` because Google retires models
+ * and the replacement is not always a same-named version bump — a hardcoded id
+ * is a future outage with no lever to pull. Verified working 2026-09-28.
+ */
+const MODEL = process.env.GEMINI_MODEL ?? 'gemini-3.8-flash'
 
 /** Serverless functions get killed on long requests; fail fast and cleanly. */
 const REQUEST_TIMEOUT_MS = 20_000
@@ -115,6 +120,15 @@ function translateProviderError(error: unknown): ReturnType<typeof aiUnavailable
   const text = error instanceof Error ? error.message : String(error)
   const status = extractStatus(error)
 
+  // A 404 from this SDK means the model id is gone, not that the network is
+  // down. Google retires models on a schedule and the response says so, but a
+  // generic "check your connection" sends whoever is debugging it in exactly
+  // the wrong direction — which is what happened the first time this fired.
+  if (status === 404 || /no longer available|is not found for API version/i.test(text)) {
+    return notConfigured(
+      'The configured AI model is no longer available. Set GEMINI_MODEL to a current model id and redeploy.',
+    )
+  }
   if (status === 400 || status === 401 || status === 403) {
     return aiUnavailable(
       'The AI service rejected the request. Check that the API key is valid and the model is available.',
