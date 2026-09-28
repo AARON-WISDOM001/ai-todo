@@ -537,12 +537,19 @@ async function fetchJson(url) {
 }
 
 async function waitForDevtools() {
-  for (let i = 0; i < 60; i++) {
+  // A cold Chrome start on macOS takes longer than a warm one — well past 12s
+  // when no browser is already running. A short budget made this harness fail
+  // intermittently, which is worse than no audit: a flaky gate gets ignored, and
+  // a genuine regression hides behind the noise.
+  for (let i = 0; i < 120; i++) {
+    if (chrome.exitCode !== null) {
+      throw new Error(`Chrome exited with code ${chrome.exitCode} before DevTools came up`)
+    }
     try {
       await fetchJson(`http://127.0.0.1:${PORT}/json/version`)
       return
     } catch {
-      await sleep(200)
+      await sleep(500)
     }
   }
   throw new Error('Chrome DevTools endpoint never became available')
