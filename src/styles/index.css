@@ -1,0 +1,281 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter/index.css';
+
+/* ==========================================================================
+   Design tokens
+
+   One accent colour, one neutral ramp, and a short set of functional colours
+   reserved for state (priority, completion, urgency, AI). Colour is only ever
+   used to communicate something — never as decoration.
+   ========================================================================== */
+
+@theme {
+  /* --- Type ------------------------------------------------------------ */
+  --font-sans:
+    'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+
+  /* --- Warm neutral palette -------------------------------------------- */
+  /* A softer, paper-like foundation to avoid the default "AI SaaS" blue-grey
+     feel while keeping contrast high enough for readable text. */
+  --color-canvas: #f1ece5;
+  --color-surface: #fdf9f4;
+  --color-surface-sunken: #efe4d8;
+  --color-ink: #201c1a;
+  --color-ink-secondary: #4d4541;
+  --color-ink-tertiary: #695f5a;
+  --color-ink-disabled: #b6a89f;
+  --color-line: #dccbb9;
+  --color-line-strong: #c2ab93;
+
+  /* --- Accent: grounded charcoal / clay -------------------------------- */
+  --color-accent: #2d2928;
+  --color-accent-hover: #1f1c1b;
+  --color-accent-subtle: #f0e2d5;
+  --color-accent-muted: #d5b59b;
+
+  /* --- Functional state ------------------------------------------------ */
+  --color-urgent: #b65a3d;
+  --color-urgent-subtle: #f7eee7;
+  --color-caution: #8f6f46;
+  --color-success: #4d6a57;
+  --color-success-subtle: #edf3ee;
+  --color-danger: #b65a3d;
+
+  /* --- Radius: less rounded, more structured --------------------------- */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+
+  /* --- Elevation: barely there for surfaces, one step for overlays ----- */
+  --shadow-hairline: 0 0 0 1px rgb(9 9 11 / 0.04);
+  --shadow-raised: 0 1px 2px rgb(9 9 11 / 0.04), 0 1px 1px rgb(9 9 11 / 0.03);
+  --shadow-overlay:
+    0 12px 32px -8px rgb(9 9 11 / 0.12), 0 4px 12px -4px rgb(9 9 11 / 0.06),
+    0 0 0 1px rgb(9 9 11 / 0.05);
+
+  /* --- Motion: short, purposeful, state-communicating ------------------ */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-soft: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  --animate-fade-in: fade-in 160ms var(--ease-out-soft) both;
+  --animate-scale-in: scale-in 180ms var(--ease-out-expo) both;
+  --animate-slide-up: slide-up 220ms var(--ease-out-expo) both;
+  --animate-slide-in-right: slide-in-right 240ms var(--ease-out-expo) both;
+  --animate-shimmer: shimmer 1.4s linear infinite;
+  --animate-pulse-ring: pulse-ring 1.8s var(--ease-out-soft) infinite;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 var(--color-accent-muted);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgb(199 201 247 / 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgb(199 201 247 / 0);
+  }
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0) 20%),
+      var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    letter-spacing: -0.008em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: 'cv11', 'ss01';
+    /* The app manages its own scroll containers; the page itself never scrolls. */
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    letter-spacing: -0.021em;
+    font-weight: 600;
+    text-wrap: balance;
+  }
+
+  /* One focus treatment across the whole app. Never removed, only restyled. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+  }
+
+  /* Remove the default ring for pointer users; :focus-visible replaces it. */
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  ::selection {
+    background-color: var(--color-accent-subtle);
+    color: var(--color-accent-hover);
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-ink-tertiary);
+  }
+
+  /* Numbers in counts and dates must not shift width as they change. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ==========================================================================
+   Component utilities
+   ========================================================================== */
+
+@utility scrollbar-subtle {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+
+  &::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--color-line-strong);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 999px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-ink-disabled);
+    background-clip: content-box;
+  }
+}
+
+/* Loading placeholder. Communicates "content is coming" without a spinner. */
+@utility skeleton {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-surface-sunken) 0%,
+    var(--color-line) 50%,
+    var(--color-surface-sunken) 100%
+  );
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+  border-radius: var(--radius-sm);
+}
+
+@utility text-title {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.45;
+  letter-spacing: -0.012em;
+}
+
+/* ==========================================================================
+   Accessibility
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
