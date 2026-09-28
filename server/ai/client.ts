@@ -21,11 +21,27 @@ import { toGeminiSchema } from './json-schema.ts'
 const API_KEY = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? ''
 
 /**
- * Default model. Overridable with `GEMINI_MODEL` because Google retires models
- * and the replacement is not always a same-named version bump — a hardcoded id
- * is a future outage with no lever to pull. Verified working 2026-09-28.
+ * Models to try, in order.
+ *
+ * A single model id is not a stable default. Google both retires models and
+ * intermittently returns 503 "high demand" for ids that are perfectly current
+ * — on 2026-09-28, 3.8-flash, 3.7-flash, and 3.5-flash were all serving 503
+ * while 3.6-flash answered in under two seconds. Pinning one id would make the
+ * app's availability a function of Google's load rather than of anything we
+ * control, so each request walks this list and falls through on capacity errors
+ * only. Every entry accepts the same response schema, so falling through is
+ * invisible to the user.
+ *
+ * An explicit `GEMINI_MODEL` is honoured on its own and never silently
+ * substituted: if an operator pins a model, they want that model or an error,
+ * not a different one they never approved.
  */
-const MODEL = process.env.GEMINI_MODEL ?? 'gemini-3.8-flash'
+const MODELS: readonly string[] = process.env.GEMINI_MODEL
+  ? [process.env.GEMINI_MODEL]
+  : ['gemini-3.6-flash', 'gemini-3.8-flash', 'gemini-flash-latest']
+
+/** The model reported by /api/health: the one most requests will use. */
+const MODEL = MODELS[0] as string
 
 /** Serverless functions get killed on long requests; fail fast and cleanly. */
 const REQUEST_TIMEOUT_MS = 20_000
@@ -61,6 +77,10 @@ export interface StructuredRequest<S extends z.ZodType> {
 /**
  * Calls Gemini and returns a value that has passed `schema`.
  *
+ * Walks the model ladder, falling through on capacity errors only. A bad key or
+ * a malformed request will fail identically on every model, so retrying those
+ * would just multiply the latency before returning the same answer.
+ *
  * Throws `AppError` subclasses only, so callers never have to reason about SDK
  * error shapes.
  */
@@ -68,25 +88,35 @@ export async function generateStructured<S extends z.ZodType>(
   request: StructuredRequest<S>,
 ): Promise<z.output<S>> {
   const ai = getClient()
+  const responseSchema = toGeminiSchema(request.schema, request.schemaName)
 
   let text: string | undefined
-  try {
-    const response = await ai.models.generateContent({
-      model: MODEL,
-      contents: request.prompt,
-      config: {
-        systemInstruction: request.system,
-        temperature: request.temperature ?? 0.3,
-        responseMimeType: 'application/json',
-        responseSchema: toGeminiSchema(request.schema, request.schemaName),
-        // Keep latency predictable: this is a UI interaction, not a reasoning task.
-        thinkingConfig: { thinkingBudget: 0 },
-      },
-    })
-    text = response.text
-  } catch (error) {
-    throw translateProviderError(error)
+  let lastError: unknown
+
+  for (const model of MODELS) {
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents: request.prompt,
+        config: {
+          systemInstruction: request.system,
+          temperature: request.temperature ?? 0.3,
+          responseMimeType: 'application/json',
+          responseSchema,
+          // Keep latency predictable: this is a UI interaction, not a reasoning task.
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      })
+      text = response.text
+      break
+    } catch (error) {
+      if (!isCapacityError(error)) throw translateProviderError(error)
+      lastError = error
+      console.warn(`[ai] ${model} is at capacity, trying the next model`)
+    }
   }
+
+  if (text === undefined) throw translateProviderError(lastError)
 
   if (!text || text.trim().length === 0) {
     // A blocked or empty completion still returns a 200, so it needs its own message.
@@ -139,11 +169,24 @@ function translateProviderError(error: unknown): ReturnType<typeof aiUnavailable
   }
   if (status === 500 || status === 503) {
     return aiUnavailable('The AI service is temporarily unavailable. Please try again.')
-  }
-  if (/abort|timeout|timed out/i.test(text)) {
+  }  if (/abort|timeout|timed out/i.test(text)) {
     return aiUnavailable('The AI took too long to respond. Please try again.')
   }
   return aiUnavailable('We could not reach the AI service. Check your connection and try again.')
+}
+
+/**
+ * Whether a failure is worth trying a different model for.
+ *
+ * Deliberately narrow: capacity and overload only. Anything else — a bad key, a
+ * schema the model refuses, a safety block — is a property of the request, not
+ * of the model, and will recur on every entry in the ladder.
+ */
+function isCapacityError(error: unknown): boolean {
+  const status = extractStatus(error)
+  if (status === 429 || status === 500 || status === 503) return true
+  const text = error instanceof Error ? error.message : String(error)
+  return /high demand|overloaded|UNAVAILABLE|rate limit/i.test(text)
 }
 
 /** Digs an HTTP status out of the SDK error without depending on its internals. */

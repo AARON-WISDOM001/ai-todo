@@ -13,7 +13,7 @@
  * the network instead of at a model id Google had retired.
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
 const generateContent = vi.hoisted(() => vi.fn())
@@ -52,8 +52,18 @@ function providerError(status: number, message: string) {
 
 beforeEach(() => {
   generateContent.mockReset()
+  // The model ladder is read at module load, so the environment has to start
+  // from a known baseline every test. `restoreMocks` does not undo stubEnv, and
+  // a leaked GEMINI_MODEL would silently collapse the ladder to one entry.
+  vi.unstubAllEnvs()
   vi.stubEnv('GEMINI_API_KEY', 'test-key')
+  vi.stubEnv('GEMINI_MODEL', undefined)
   vi.spyOn(console, 'error').mockImplementation(() => {})
+  vi.spyOn(console, 'warn').mockImplementation(() => {})
+})
+
+afterEach(() => {
+  vi.unstubAllEnvs()
 })
 
 describe('provider failures become safe, actionable errors', () => {
@@ -136,11 +146,94 @@ describe('provider failures become safe, actionable errors', () => {
     const { aiConfiguration } = await import('../server/ai/client.ts')
     // Pinned deliberately: when Google retires this id, this test is what
     // should fail first, pointing at the one line that needs changing.
-    expect(aiConfiguration().model).toBe('gemini-3.8-flash')
+    expect(aiConfiguration().model).toBe('gemini-3.6-flash')
 
     vi.stubEnv('GEMINI_MODEL', 'gemini-something-else')
     vi.resetModules()
     const overridden = await import('../server/ai/client.ts')
     expect(overridden.aiConfiguration().model).toBe('gemini-something-else')
+  })
+})
+
+describe('the model ladder', () => {
+  it('falls through to the next model when one is at capacity', async () => {
+    generateContent
+      .mockRejectedValueOnce(providerError(503, 'This model is currently experiencing high demand'))
+      .mockResolvedValueOnce({ text: JSON.stringify({ title: 'Draft the report' }) })
+    const generateStructured = await loadClient()
+
+    const result = await generateStructured(request())
+
+    expect(result).toEqual({ title: 'Draft the report' })
+    expect(generateContent).toHaveBeenCalledTimes(2)
+    const models = generateContent.mock.calls.map((c) => (c[0] as { model: string }).model)
+    expect(models[0]).not.toBe(models[1])
+  })
+
+  it('does not retry the same model across the ladder', async () => {
+    generateContent.mockRejectedValue(providerError(503, 'high demand'))
+    const generateStructured = await loadClient()
+
+    await generateStructured(request()).catch(() => undefined)
+
+    const models = generateContent.mock.calls.map((c) => (c[0] as { model: string }).model)
+    expect(new Set(models).size).toBe(models.length)
+  })
+
+  it('stops at the first model that answers, without calling the rest', async () => {
+    generateContent.mockResolvedValue({ text: JSON.stringify({ title: 'ok' }) })
+    const generateStructured = await loadClient()
+
+    await generateStructured(request())
+
+    expect(generateContent).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not fall through on a bad key, because no model will fix it', async () => {
+    generateContent.mockRejectedValue(providerError(403, 'Permission denied'))
+    const generateStructured = await loadClient()
+
+    const error = (await generateStructured(request()).catch((e: unknown) => e)) as Error
+
+    expect(generateContent).toHaveBeenCalledTimes(1)
+    expect(error.message).toMatch(/API key/i)
+  })
+
+  it('reports a temporary outage once the whole ladder is exhausted', async () => {
+    generateContent.mockRejectedValue(providerError(503, 'high demand'))
+    const generateStructured = await loadClient()
+
+    const error = (await generateStructured(request()).catch((e: unknown) => e)) as {
+      code: string
+      toJSON: () => { retryable: boolean }
+    }
+
+    expect(error.code).toBe('ai_unavailable')
+    expect(error.toJSON().retryable).toBe(true)
+  })
+
+  it('honours an explicit GEMINI_MODEL without silently substituting another', async () => {
+    vi.stubEnv('GEMINI_MODEL', 'gemini-pinned-by-operator')
+    generateContent.mockRejectedValue(providerError(503, 'high demand'))
+    const generateStructured = await loadClient()
+
+    await generateStructured(request()).catch(() => undefined)
+
+    const models = generateContent.mock.calls.map((c) => (c[0] as { model: string }).model)
+    expect(models).toEqual(['gemini-pinned-by-operator'])
+  })
+
+  it('sends the same response schema to every model it tries', async () => {
+    generateContent
+      .mockRejectedValueOnce(providerError(503, 'high demand'))
+      .mockResolvedValueOnce({ text: JSON.stringify({ title: 'ok' }) })
+    const generateStructured = await loadClient()
+
+    await generateStructured(request())
+
+    const configs = generateContent.mock.calls.map(
+      (c) => (c[0] as { config: { responseSchema: unknown } }).config.responseSchema,
+    )
+    expect(configs[0]).toEqual(configs[1])
   })
 })

@@ -42,8 +42,17 @@ On top of that, four AI capabilities. Not a chatbot — four specific jobs:
 | **What next** | Reviews your open tasks and names the one to start, with reasoning. | Sidebar → **Ask AI what to do next** |
 | **Improve** | Rewrites a vague title or description into something actionable. | Task editor → **Improve with AI** |
 
-The model is **Google Gemini** (`gemini-3.8-flash` by default), reached through
+The model is **Google Gemini** (`gemini-3.6-flash` by default), reached through
 serverless functions so the API key never reaches the browser.
+
+Requests walk a short **model ladder** — `gemini-3.6-flash`, then
+`gemini-3.8-flash`, then `gemini-flash-latest` — and fall through only on
+capacity errors. Google intermittently returns 503 "high demand" for model ids
+that are entirely current, so a single pinned id would make the app's
+availability a function of Google's load. Every entry accepts the same response
+schema, so falling through is invisible to the user. Setting `GEMINI_MODEL`
+disables the ladder and pins one model, which is what you want if you need a
+specific model for cost or compliance reasons.
 
 ---
 
@@ -74,7 +83,7 @@ for development, or set them in your Vercel project settings for production.
 | --- | --- | --- | --- |
 | `GEMINI_API_KEY` | For AI features | — | Gemini API key. |
 | `GOOGLE_API_KEY` | Alternative | — | Accepted if `GEMINI_API_KEY` is unset. Matches the Google Cloud console's naming. |
-| `GEMINI_MODEL` | No | `gemini-3.8-flash` | Model id, if you want a different one. |
+| `GEMINI_MODEL` | No | ladder of 3 | Pins one model id and disables fallback. |
 
 `GET /api/health` reports whether a key is present and which model is in use. It
 never returns any part of the key, so it is safe to leave unauthenticated.

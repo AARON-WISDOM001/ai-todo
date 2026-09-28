@@ -52,7 +52,7 @@ beforeEach(() => {
       if (url.includes('/api/health')) {
         return jsonResponse(200, {
           ok: true,
-          data: { status: 'healthy', ai: { configured: false, model: 'gemini-3.8-flash' } },
+          data: { status: 'healthy', ai: { configured: false, model: 'gemini-3.6-flash' } },
         })
       }
 
