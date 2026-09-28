@@ -32,7 +32,8 @@ colour, or focus behaviour.
   reference `process.env` at all — the browser has no such thing, and a
   `import.meta.env` reference to a secret name will be bundled.
 - The key must never appear in a response body, a log line, or an error message.
-  `api/health` reports a boolean, never a value.
+  `api/health` reports a boolean, never a value. The route source is
+  `server/routes/health.ts`; `api/` itself is generated.
 
 ## 3. `shared/` is the contract
 
@@ -164,7 +165,8 @@ its place by answering "why this way and not the obvious way?".
    resolve and that invented deadlines are forbidden.
 4. Add the action to `server/ai/actions.ts`, keeping it a pure
    request → response function with all model interaction in `client.ts`.
-5. Add the route in `api/ai/`, which should stay a three-line `defineRoute` call.
+5. Add the route in `server/routes/ai/`, which should stay a three-line
+   `defineRoute` call. Not in `api/` — see section 16.
 6. Add the entry point to `ai-command-bar.tsx`, disabled when its preconditions
    are unmet.
 7. Add tests: schema conversion, validation of a malformed reply, invented-id
@@ -200,6 +202,31 @@ its place by answering "why this way and not the obvious way?".
 - Mocking `fetch` to always succeed in a test of a failure path.
 - Assuming the current user is one. The Today view, due-date labels, and
   `now`-dependent selectors must accept an injected `Date` for testability.
+- Writing a route into `api/`. That directory is generated and gitignored; see
+  section 16.
+
+## 16. `api/` is generated, not authored
+
+Route sources live in `server/routes/`. `npm run build` bundles each one into a
+self-contained `api/**/*.js` via `scripts/build-functions.mjs`, and Vercel
+deploys that.
+
+This is not a preference. Vercel's Node builder transpiles a function's entry
+file in place and does not follow relative imports into sibling TypeScript, so a
+handler importing `../../shared/ai.ts` emits JavaScript containing that literal
+specifier. Node then throws `ERR_MODULE_NOT_FOUND` and every request returns
+`FUNCTION_INVOCATION_FAILED` — while the build reports success and the static
+app works fine, so nothing local reveals the problem.
+
+Rules:
+
+- Never commit `api/`. It is gitignored and regenerated on every build.
+- Never add a route there directly. Add it under `server/routes/`.
+- The dev server mounts the real handlers from `server/routes/` through
+  `vite-plugins/api-dev-server.ts`, so local and deployed behaviour cannot drift.
+- `tests/function-bundle.test.ts` bundles a route and runs it in a separate Node
+  process. It is the only test that exercises the deployed artefact; if you
+  change the bundler, it is the test that will notice.
 
 ## 15. Current state
 

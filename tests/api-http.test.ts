@@ -20,8 +20,8 @@ vi.mock('../server/ai/actions.ts', () => ({
   improveTask: vi.fn(),
 }))
 
-const { default: createHandler } = await import('../api/ai/create.ts')
-const { default: healthHandler } = await import('../api/health.ts')
+const { default: createHandler } = await import('../server/routes/ai/create.ts')
+const { default: healthHandler } = await import('../server/routes/health.ts')
 
 /** Minimal stand-in for the Node response object the handlers write to. */
 function makeRes() {

@@ -39,7 +39,7 @@ export function apiDevServer(): Plugin {
         if (!modulePath) return next()
 
         try {
-          const module = (await server.ssrLoadModule(`/api/${modulePath}.ts`)) as ApiModule
+          const module = (await server.ssrLoadModule(`/server/routes/${modulePath}.ts`)) as ApiModule
           const handler = module.default
           if (typeof handler !== 'function') {
             res.statusCode = 404
@@ -49,7 +49,7 @@ export function apiDevServer(): Plugin {
           await handler(req, res)
         } catch (error) {
           server.config.logger.error(
-            `[api] failed to load /api/${modulePath}.ts\n${error instanceof Error ? error.stack ?? error.message : String(error)}`,
+            `[api] failed to load /server/routes/${modulePath}.ts\n${error instanceof Error ? error.stack ?? error.message : String(error)}`,
           )
           if (!res.headersSent) {
             res.statusCode = 500

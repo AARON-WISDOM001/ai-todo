@@ -3,9 +3,9 @@
  * Read-only: the parent task is never modified.
  */
 
-import { breakdownRequestSchema } from '../../shared/ai.ts'
-import { breakDownTask } from '../../server/ai/actions.ts'
-import { defineRoute } from '../../server/_lib/http.ts'
+import { breakdownRequestSchema } from '../../../shared/ai.ts'
+import { breakDownTask } from '../../ai/actions.ts'
+import { defineRoute } from '../../_lib/http.ts'
 
 export default defineRoute(breakdownRequestSchema, async (request) => ({
   ok: true,

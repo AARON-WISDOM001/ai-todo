@@ -15,9 +15,12 @@ import { afterEach, beforeEach } from 'vitest'
 beforeEach(() => {
   // Every test starts with empty storage, so persisted state from a previous
   // test can never make the next one pass or fail for the wrong reason.
-  window.localStorage.clear()
+  // Guarded because files that assert on server or bundler output opt into the
+  // `node` environment, where there is no window to clear.
+  if (typeof window !== 'undefined') window.localStorage.clear()
 })
 
 afterEach(() => {
-  cleanup()
+  // Likewise `cleanup` is a DOM concern and is meaningless without one.
+  if (typeof window !== 'undefined') cleanup()
 })
