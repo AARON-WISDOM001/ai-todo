@@ -203,6 +203,17 @@ real `role="dialog"` with `aria-modal`, a focus trap, Escape to close, and focus
 restoration. A drawer that blocks the page behind it must not let a keyboard user
 tab out into content they cannot see.
 
+**A dark theme that is a palette, not a filter.** Both appearances are defined
+once as semantic tokens in `src/styles/index.css`; `[data-theme='dark']`
+overrides those tokens and nothing else. No component carries a `dark:` variant,
+so the dark palette was free to be a warm near-black rather than a mechanical
+grey — which is the whole point of building it this way. The preference is
+`system` by default, follows the OS until you say otherwise, and is applied by a
+small inline script before first paint so a dark-mode user never sees a white
+flash. Toggling derives from the *resolved* theme, not the stored string, so the
+first press on a device that is already dark goes to light instead of appearing
+to do nothing.
+
 **Colour is never the only signal.** Priority and due-date urgency each have a
 text label as well as a hue. Every colour pairing in the design system was
 checked against WCAG AA contrast with a script, not by eye.

@@ -35,9 +35,10 @@ export function WorkspaceHeader({ className }: { className?: string }) {
 
   return (
     <header className={cn('shrink-0 border-b border-line bg-surface/85 backdrop-blur-[2px]', className)}>
+      {/* Title row + search row stack on mobile, single row on desktop. */}
       <div className="flex flex-col gap-2 px-3 py-2 sm:h-14 sm:flex-row sm:items-center sm:gap-2 sm:px-5 sm:py-0">
-        <div className="flex items-center gap-2 sm:min-w-0 sm:flex-1">
-          <IconButton label="Open navigation" onClick={() => setMobileNavOpen(true)} className="lg:hidden">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <IconButton label="Open navigation" onClick={() => setMobileNavOpen(true)} className="shrink-0 lg:hidden">
             <svg viewBox="0 0 16 16" className="size-4" fill="none" aria-hidden="true">
               <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
             </svg>
@@ -57,9 +58,9 @@ export function WorkspaceHeader({ className }: { className?: string }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 sm:flex-none">
-          {/* Search collapses into the icon row on small screens. */}
-          <div className="relative hidden sm:block">
+        <div className="flex min-w-0 items-center gap-2 sm:flex-none">
+          {/* Search keeps its width on desktop and drops to its own row on mobile. */}
+          <div className="relative min-w-0 flex-1 sm:flex-none">
             <SearchIcon />
             <input
               ref={searchRef}
@@ -69,10 +70,11 @@ export function WorkspaceHeader({ className }: { className?: string }) {
               placeholder="Search tasks"
               aria-label="Search tasks by title, description, or subtask"
               className={cn(
-                'h-9 w-44 rounded-md border border-line bg-surface-sunken pr-9 pl-8 text-[13px]',
+                'h-10 w-full rounded-md border border-line bg-surface-sunken pr-9 pl-8 text-[16px]',
                 'placeholder:text-ink-tertiary transition-[width,background-color,border-color] duration-200',
                 'ease-[var(--ease-out-soft)] hover:bg-surface-sunken',
-                'focus:w-64 focus:border-accent focus:bg-surface focus:ring-2 focus:ring-accent/20 focus:outline-none',
+                'focus:border-accent focus:bg-surface focus:ring-2 focus:ring-accent/20 focus:outline-none',
+                'sm:h-9 sm:w-44 sm:text-[13px] sm:focus:w-64',
               )}
             />
             {!isSearching && (
@@ -119,7 +121,7 @@ export function WorkspaceHeader({ className }: { className?: string }) {
             <span className="hidden sm:inline">
               {selectedId ? 'Improve with AI' : 'Ask AI'}
             </span>
-            <Kbd className="hidden bg-white/15 text-white/80 lg:inline-flex">⌘J</Kbd>
+            <Kbd className="hidden bg-on-accent/15 text-on-accent/80 lg:inline-flex">⌘J</Kbd>
           </Button>
         </div>
       </div>

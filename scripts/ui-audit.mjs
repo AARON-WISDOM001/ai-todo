@@ -104,6 +104,71 @@ const OVERLAYS = [
     // Zero rows is the point of this scenario: it is the no-results state.
     expectTasks: 0,
   },
+  // Dark theme is seeded rather than clicked. Headless Chrome reports its own
+  // `prefers-color-scheme`, so a scenario that starts from `system` begins in
+  // whichever appearance the browser picked — clicking then lands somewhere
+  // different on each machine. Seeding before the reload also exercises the
+  // no-flash script, since the theme has to be right at first paint.
+  {
+    name: 'dark-desktop',
+    width: 1440,
+    height: 900,
+    seed: { theme: 'dark' },
+    expect: 'html[data-theme="dark"]',
+  },
+  {
+    name: 'theme-toggle',
+    width: 1440,
+    height: 900,
+    seed: { theme: 'light' },
+    setup: `[...document.querySelectorAll('button')].find(b => /Dark mode/.test(b.textContent))?.click()`,
+    expect: 'html[data-theme="dark"]',
+  },
+  {
+    name: 'dark-task-editor',
+    width: 1440,
+    height: 900,
+    seed: { theme: 'dark' },
+    setup: `document.querySelector('[data-task-row] [data-role="title"]')?.click()`,
+    expect: '[role="dialog"]',
+  },
+  {
+    name: 'dark-command-bar',
+    width: 1440,
+    height: 900,
+    seed: { theme: 'dark' },
+    setup: `[...document.querySelectorAll('button')].find(b => /Ask AI/.test(b.textContent))?.click()`,
+    expect: '[role="dialog"]',
+  },
+  {
+    name: 'dark-mobile-drawer',
+    width: 390,
+    height: 844,
+    seed: { theme: 'dark' },
+    setup: `[...document.querySelectorAll('button')].find(b => b.getAttribute('aria-label') === 'Open navigation')?.click()`,
+    expect: '[role="dialog"][aria-label="Navigation"]',
+  },
+  {
+    name: 'dark-search-no-match',
+    width: 1440,
+    height: 900,
+    seed: { theme: 'dark' },
+    setup: `
+      const wait = async (sel) => {
+        for (let i = 0; i < 60 && !document.querySelector(sel); i++) {
+          await new Promise(r => setTimeout(r, 50));
+        }
+        return document.querySelector(sel);
+      };
+      const input = await wait('input[type="search"]');
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+      setter.call(input, 'zzz nothing matches this');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    `,
+    expect: 'input[type="search"]',
+    // The empty state carries its own text, so it has to be legible too.
+    expectTasks: 0,
+  },
 ]
 
 const profile = mkdtempSync(join(tmpdir(), 'ui-audit-'))
@@ -249,6 +314,7 @@ async function audit(viewport, sessionSend) {
         mk('t6', 'Set up the staging database', '', 'low', key(9), true, 'manual', []),
       ];
       localStorage.setItem('ai-todo:tasks:v1', JSON.stringify(tasks));
+      ${viewport.seed?.theme ? `localStorage.setItem('ai-todo:theme:v1', ${JSON.stringify(viewport.seed.theme)});` : ''}
       return localStorage.getItem('ai-todo:tasks:v1').length;
     })()`)
   if (!seeded.result?.value) {

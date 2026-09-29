@@ -75,6 +75,19 @@ const jsonResponse = (status: number, body: unknown) =>
     headers: { 'Content-Type': 'application/json' },
   })
 
+describe('mobile navigation drawer', () => {
+  it('stays visible after opening from the hamburger button', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Open navigation' }))
+
+    const drawer = await screen.findByRole('dialog', { name: 'Navigation' })
+    expect(drawer).toBeInTheDocument()
+    expect(drawer.className).not.toContain('[animation-direction:reverse]')
+  })
+})
+
 describe('create a task', () => {
   it('adds a task typed into the composer', async () => {
     const user = userEvent.setup()

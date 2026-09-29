@@ -55,7 +55,8 @@ export function QuickAdd({ className }: { className?: string }) {
           'focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/10',
         )}
       >
-        <div className="flex items-center gap-2.5 px-3 py-1.5">
+        {/* Keep the title row single-line on mobile so Add never drops off screen. */}
+        <div className="flex items-center gap-2 px-3 py-1.5 sm:gap-2.5">
           <svg viewBox="0 0 16 16" className="size-4 shrink-0 text-ink-disabled" fill="none" aria-hidden="true">
             <path d="M8 3.5v9M3.5 8h9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
@@ -69,16 +70,16 @@ export function QuickAdd({ className }: { className?: string }) {
             onChange={(event) => setTitle(event.target.value)}
             placeholder="Add a task…"
             maxLength={200}
-            className="h-11 min-w-0 flex-1 bg-transparent text-sm placeholder:text-ink-tertiary focus:outline-none"
+            className="h-11 min-w-0 flex-1 bg-transparent text-[16px] placeholder:text-ink-tertiary focus:outline-none sm:h-10 sm:text-sm"
           />
-          <Button type="submit" size="sm" variant={title.trim() ? 'primary' : 'ghost'} disabled={!title.trim()}>
+          <Button type="submit" size="sm" variant={title.trim() ? 'primary' : 'ghost'} disabled={!title.trim()} className="h-9 shrink-0 sm:h-7">
             Add
           </Button>
         </div>
 
         {showOptions && (
           <div className="flex animate-[var(--animate-slide-up)] flex-col gap-3 border-t border-line px-3 py-3 sm:flex-row sm:items-end sm:gap-2.5">
-            <div className="flex flex-col gap-1.5 sm:min-w-[136px]">
+            <div className="flex min-w-[124px] flex-col gap-1.5">
               <label htmlFor="quick-add-priority" className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-secondary">
                 Priority
               </label>
@@ -86,7 +87,7 @@ export function QuickAdd({ className }: { className?: string }) {
                 id="quick-add-priority"
                 value={priority}
                 onChange={(event) => setPriority(event.target.value as Priority)}
-                className="h-8 w-full sm:w-32"
+                className="h-10 w-full text-[16px] sm:h-8 sm:text-[13px] lg:w-32"
               >
                 {PRIORITIES.map((value) => (
                   <option key={value} value={value}>
@@ -96,7 +97,7 @@ export function QuickAdd({ className }: { className?: string }) {
               </Select>
             </div>
 
-            <div className="flex flex-col gap-1.5 sm:min-w-[170px]">
+            <div className="flex min-w-[124px] flex-col gap-1.5 sm:min-w-[170px]">
               <label htmlFor="quick-add-due" className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-secondary">
                 Due date
               </label>
@@ -107,7 +108,7 @@ export function QuickAdd({ className }: { className?: string }) {
                   value={dueDate}
                   min="2000-01-01"
                   onChange={(event) => setDueDate(event.target.value)}
-                  className="h-8 w-full rounded-md border border-line bg-surface px-2 text-[13px] focus:border-accent focus:ring-2 focus:ring-accent/20 focus:outline-none"
+                  className="h-10 w-full rounded-md border border-line bg-surface px-2 text-[16px] focus:border-accent focus:ring-2 focus:ring-accent/20 focus:outline-none sm:h-8 sm:text-[13px]"
                 />
                 {!dueDate && (
                   <Button size="sm" variant="ghost" onClick={() => setDueDate(todayKey())}>

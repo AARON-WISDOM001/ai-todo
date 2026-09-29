@@ -77,7 +77,7 @@ export function BreakdownReview({
               onClick={() => patch(step.key, { selected: !step.selected })}
               className={`mt-0.5 grid size-[18px] shrink-0 place-items-center rounded-[5px] border text-[11px] font-semibold transition-colors ${
                 step.selected
-                  ? 'border-accent bg-accent text-white'
+                  ? 'border-accent bg-accent text-on-accent'
                   : 'border-line-strong bg-surface text-ink-tertiary hover:border-accent'
               }`}
             >

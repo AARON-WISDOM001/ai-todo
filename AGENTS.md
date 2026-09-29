@@ -120,6 +120,25 @@ raw hex values in components.
   collapse under `prefers-reduced-motion`.
 - Use `h-dvh`, not `h-screen`, so mobile browser chrome does not clip the layout.
 
+### Dark mode
+
+`src/lib/theme.tsx` owns the preference; `src/styles/index.css` owns the palette.
+Both must be touched together — see section 17.
+
+- Do **not** reach for `dark:` variants. The whole app themes through semantic
+  tokens, so a `dark:` class is a bug: it hardcodes a colour that the dark
+  palette was free to choose. `[data-theme='dark']` in the stylesheet is the only
+  place raw values are allowed.
+- Text on an accent or ink-filled surface uses `text-on-accent`, not
+  `text-white`. White is legible on neither surface in both themes.
+- Theme state reaches the DOM as `documentElement.dataset.theme`, set by the
+  inline script in `index.html` before first paint. Anything that changes the
+  theme later goes through `ThemeProvider` so the attribute stays in sync.
+- The inline script duplicates the storage key and resolve rule from
+  `theme.tsx`. That duplication is deliberate; if you change one, change both.
+  `tests/theme.test.tsx` covers the module, not the script — the audit covers
+  the script by seeding a theme and reloading.
+
 ## 8. Accessibility is a requirement, not a polish step
 
 - Every interactive element needs an accessible name. Icon-only controls use

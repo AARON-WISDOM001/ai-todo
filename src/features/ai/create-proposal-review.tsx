@@ -91,7 +91,7 @@ export function CreateProposalReview({
                   onClick={() => patch(proposal.key, { selected: !proposal.selected })}
                   className={`mt-0.5 grid size-[18px] shrink-0 place-items-center rounded-[5px] border transition-colors ${
                     proposal.selected
-                      ? 'border-accent bg-accent text-white'
+                      ? 'border-accent bg-accent text-on-accent'
                       : 'border-line-strong bg-surface hover:border-accent'
                   }`}
                 >

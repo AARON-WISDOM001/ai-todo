@@ -243,8 +243,9 @@ export function TaskEditorDialog() {
                     addSubtask()
                   }
                 }}
+                className="h-10 text-[16px] sm:h-9 sm:text-sm"
               />
-              <Button size="sm" onClick={addSubtask} disabled={newSubtask.trim().length === 0}>
+              <Button size="sm" onClick={addSubtask} disabled={newSubtask.trim().length === 0} className="h-10 shrink-0 px-3 sm:h-7">
                 Add
               </Button>
             </div>

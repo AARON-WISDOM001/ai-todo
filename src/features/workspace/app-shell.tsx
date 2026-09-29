@@ -27,7 +27,7 @@ export function AppShell() {
   const { tasks } = useWorkspace()
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-canvas">
+    <div className="flex h-dvh flex-col overflow-hidden bg-canvas lg:flex-row">
       <a
         href="#task-list"
         className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2 focus:text-sm focus:shadow-overlay"
@@ -42,7 +42,9 @@ export function AppShell() {
 
       <MobileNavDrawer />
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      {/* Middle column: header + scrollable content. min-h-0 lets the list scroll
+          instead of pushing the tab bar off screen on small viewports. */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <WorkspaceHeader />
 
         <main className="flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,rgba(253,249,244,0.72),rgba(241,236,229,0.38))]">
@@ -104,7 +106,7 @@ function MobileNavDrawer() {
         aria-modal="true"
         aria-label="Navigation"
         tabIndex={-1}
-        className="absolute inset-y-0 left-0 animate-[var(--animate-slide-in-right)] [animation-direction:reverse] outline-none"
+        className="absolute inset-y-0 left-0 animate-[var(--animate-slide-in-right)] outline-none"
       >
         <Sidebar className="shadow-overlay" onNavigate={() => setMobileNavOpen(false)} />
       </div>
@@ -133,7 +135,7 @@ function FilterBar({ className }: { className?: string }) {
   )
 
   return (
-    <div className={cn('flex flex-wrap items-center gap-1.5 px-3 py-2 sm:px-5', className)}>
+    <div className={cn('scrollbar-subtle flex items-center gap-1.5 overflow-x-auto px-3 py-2 sm:flex-wrap sm:px-5', className)}>
       {PRIORITIES.map((priority) => {
         const active = filters.priorities.includes(priority)
         const meta = PRIORITY_META[priority]
@@ -144,22 +146,22 @@ function FilterBar({ className }: { className?: string }) {
             aria-pressed={active}
             onClick={() => togglePriorityFilter(priority)}
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium',
+              'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium whitespace-nowrap',
               'transition-colors duration-150',
               active
-                ? 'border-ink bg-ink text-white'
+                ? 'border-ink bg-ink text-canvas'
                 : 'border-line bg-surface text-ink-secondary hover:border-line-strong hover:text-ink',
             )}
           >
-            <span className={cn('size-1.5 rounded-full', active ? 'bg-white/80' : meta.dot)} aria-hidden="true" />
+            <span className={cn('size-1.5 rounded-full', active ? 'bg-canvas/80' : meta.dot)} aria-hidden="true" />
             {meta.label}
-            <span className={cn('tabular', active ? 'text-white/70' : 'text-ink-tertiary')}>{counts[priority]}</span>
+            <span className={cn('tabular', active ? 'text-canvas/70' : 'text-ink-tertiary')}>{counts[priority]}</span>
           </button>
         )
       })}
 
       {hasActiveFilters && (
-        <Button size="sm" variant="ghost" onClick={clearFilters} className="ml-1">
+        <Button size="sm" variant="ghost" onClick={clearFilters} className="ml-1 shrink-0">
           Clear
         </Button>
       )}
@@ -167,14 +169,14 @@ function FilterBar({ className }: { className?: string }) {
   )
 }
 
-/** Bottom navigation for small screens. */
+/** Bottom navigation for small screens. Thumb-zone tabs mirror the sidebar views. */
 function MobileTabBar() {
   const { filters, setView, openOverlay } = useWorkspace()
 
   return (
     <nav
       aria-label="Task views"
-      className="grid shrink-0 grid-cols-5 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
+      className="grid shrink-0 grid-cols-5 border-t border-line bg-surface pt-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:hidden"
     >
       {TASK_VIEWS.map((view) => {
         const active = filters.view === view
@@ -185,12 +187,12 @@ function MobileTabBar() {
             onClick={() => setView(view)}
             aria-current={active ? 'page' : undefined}
             className={cn(
-              'flex flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium transition-colors',
+              'flex min-h-[48px] flex-col items-center justify-center gap-0.5 px-1 py-1 text-[10px] leading-tight font-medium transition-colors',
               active ? 'text-accent' : 'text-ink-tertiary',
             )}
           >
             <MobileViewIcon view={view} />
-            {VIEW_LABELS[view]}
+            <span className="max-w-full truncate">{VIEW_LABELS[view]}</span>
           </button>
         )
       })}
@@ -198,9 +200,9 @@ function MobileTabBar() {
       <button
         type="button"
         onClick={() => openOverlay({ kind: 'command', action: 'create' })}
-        className="flex flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium text-accent"
+        className="flex min-h-[48px] flex-col items-center justify-center gap-0.5 px-1 py-1 text-[10px] leading-tight font-medium text-accent"
       >
-        <span className="grid size-7 place-items-center rounded-lg bg-accent text-white">
+        <span className="grid size-7 place-items-center rounded-lg bg-accent text-on-accent">
           <svg viewBox="0 0 16 16" className="size-3.5" fill="currentColor" aria-hidden="true">
             <path d="M6.5 2l1.05 2.85L10.4 5.9 7.55 6.95 6.5 9.8 5.45 6.95 2.6 5.9 5.45 4.85z" />
           </svg>

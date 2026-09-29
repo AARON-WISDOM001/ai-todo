@@ -20,7 +20,7 @@ export const PRIORITY_META: Record<Priority, { label: string; dot: string; text:
     label: 'Medium',
     dot: 'bg-caution',
     text: 'text-caution',
-    chip: 'bg-[#fdf6ec] text-caution',
+    chip: 'bg-caution-subtle text-caution',
   },
   low: {
     label: 'Low',
@@ -130,7 +130,7 @@ export function Badge({
     neutral: 'bg-surface-sunken text-ink-secondary',
     accent: 'bg-accent-subtle text-accent',
     success: 'bg-success-subtle text-success',
-    warning: 'bg-[#fdf6ec] text-caution',
+    warning: 'bg-caution-subtle text-caution',
     danger: 'bg-urgent-subtle text-urgent',
   } as const
   return (

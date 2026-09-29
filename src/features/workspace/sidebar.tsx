@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { cn } from '../../lib/cn.ts'
 import { Kbd } from '../../components/ui/badge.tsx'
 import { useWorkspace } from './workspace-context.tsx'
+import { useTheme } from '../../lib/theme.tsx'
 import { TASK_VIEWS, VIEW_LABELS, type TaskView } from '../tasks/task-selectors.ts'
 
 const NAV_ICONS: Record<TaskView, ReactNode> = {
@@ -65,6 +66,7 @@ export function Sidebar({
 }) {
   const { filters, setView, viewCountsForSidebar, openOverlay, tasks, isMobileNavOpen, setMobileNavOpen } =
     useSidebarData()
+  const { resolved, toggle } = useTheme()
 
   return (
     <nav
@@ -168,17 +170,34 @@ export function Sidebar({
 
         <button
           type="button"
-          onClick={() => openOverlay({ kind: 'settings' })}
+          onClick={toggle}
+          aria-pressed={resolved === 'dark'}
           className={cn(
             'flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px]',
             'text-ink-secondary transition-colors duration-150 hover:bg-surface-sunken hover:text-ink',
           )}
         >
-          <svg viewBox="0 0 16 16" className="size-4" fill="none" aria-hidden="true">
-            <circle cx="8" cy="8" r="2.25" stroke="currentColor" strokeWidth="1.3" />
-            <path d="M8 1.75v1.5M8 12.75v1.5M14.25 8h-1.5M3.25 8h-1.5M12.42 3.58l-1.06 1.06M4.64 11.36l-1.06 1.06M12.42 12.42l-1.06-1.06M4.64 4.64L3.58 3.58" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-          </svg>
-          Settings
+          {resolved === 'dark' ? (
+            <svg viewBox="0 0 16 16" className="size-4" fill="none" aria-hidden="true">
+              <circle cx="8" cy="8" r="3.1" stroke="currentColor" strokeWidth="1.3" />
+              <path
+                d="M8 1.5v1.4M8 13.1v1.4M14.5 8h-1.4M2.9 8H1.5M12.6 3.4l-1 1M4.4 11.6l-1 1M12.6 12.6l-1-1M4.4 4.4l-1-1"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+              />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 16 16" className="size-4" fill="none" aria-hidden="true">
+              <path
+                d="M13.5 9.6A5.8 5.8 0 016.4 2.5a5.8 5.8 0 107.1 7.1z"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinejoin="round"
+              />
+            </svg>
+          )}
+          Dark mode
         </button>
       </div>
 

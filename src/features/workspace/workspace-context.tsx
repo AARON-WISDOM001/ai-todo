@@ -18,7 +18,6 @@ export type Overlay =
   | { kind: 'none' }
   | { kind: 'command'; action: AiAction; taskId?: string }
   | { kind: 'editor'; taskId: string | null }
-  | { kind: 'settings' }
 
 interface WorkspaceValue {
   tasks: ReturnType<typeof useTasks>

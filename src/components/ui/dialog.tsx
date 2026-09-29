@@ -50,8 +50,8 @@ export function Dialog({
   return createPortal(
     <div
       className={cn(
-        'fixed inset-0 z-50 flex justify-center p-4',
-        position === 'center' ? 'items-center' : 'items-start pt-[12vh]',
+        'fixed inset-0 z-50 flex justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4',
+        position === 'center' ? 'items-end sm:items-center' : 'items-start pt-[6vh] sm:pt-[12vh]',
       )}
     >
       <div
@@ -67,8 +67,8 @@ export function Dialog({
         aria-labelledby={hideTitle ? undefined : 'dialog-title'}
         tabIndex={-1}
         className={cn(
-          'relative flex w-full flex-col overflow-hidden bg-surface shadow-overlay',
-          'animate-[var(--animate-scale-in)] rounded-xl',
+          'relative flex max-h-[calc(100dvh-1.5rem)] w-full flex-col overflow-hidden bg-surface shadow-overlay',
+          'animate-[var(--animate-scale-in)] rounded-2xl sm:rounded-xl',
           position === 'center' ? 'max-w-lg' : 'max-w-xl',
           className,
         )}
@@ -87,7 +87,7 @@ export function Dialog({
           </IconButton>
         </div>
 
-        <div className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto px-5">{children}</div>
+        <div className="scrollbar-subtle max-h-[calc(100dvh-1.5rem)] min-h-0 flex-1 overflow-y-auto overscroll-contain px-5">{children}</div>
 
         {footer && (
           <div className="mt-5 flex items-center justify-end gap-2 border-t border-line bg-surface px-5 py-3.5">

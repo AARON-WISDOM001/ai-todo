@@ -33,14 +33,20 @@
   --color-accent-hover: #1f1c1b;
   --color-accent-subtle: #f0e2d5;
   --color-accent-muted: #d5b59b;
+  /* Anything drawn on top of `bg-accent`. Separate from the accent itself
+     because the accent inverts between themes: a near-black button in light
+     mode becomes a near-white one in dark, and `text-white` cannot serve both.
+     Hard-coding that hex in components is what this token exists to prevent. */
+  --color-on-accent: #f8f3ee;
 
   /* --- Functional state ------------------------------------------------ */
-  --color-urgent: #b65a3d;
+  --color-urgent: #a44e37;
   --color-urgent-subtle: #f7eee7;
-  --color-caution: #8f6f46;
+  --color-caution: #81613e;
+  --color-caution-subtle: #f7efe1;
   --color-success: #4d6a57;
   --color-success-subtle: #edf3ee;
-  --color-danger: #b65a3d;
+  --color-danger: #a44e37;
 
   /* --- Radius: less rounded, more structured --------------------------- */
   --radius-xs: 4px;
@@ -55,6 +61,9 @@
   --shadow-overlay:
     0 12px 32px -8px rgb(9 9 11 / 0.12), 0 4px 12px -4px rgb(9 9 11 / 0.06),
     0 0 0 1px rgb(9 9 11 / 0.05);
+  /* Light bloom on the top of the page. Flipped for dark, where a white sheen
+     reads as fog rather than as paper. */
+  --sheen: linear-gradient(180deg, rgb(255 255 255 / 0.2), rgb(255 255 255 / 0) 20%);
 
   /* --- Motion: short, purposeful, state-communicating ------------------ */
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
@@ -66,6 +75,56 @@
   --animate-slide-in-right: slide-in-right 240ms var(--ease-out-expo) both;
   --animate-shimmer: shimmer 1.4s linear infinite;
   --animate-pulse-ring: pulse-ring 1.8s var(--ease-out-soft) infinite;
+}
+
+/* ==========================================================================
+   Dark theme
+
+   Re-points the same token names rather than adding a parallel set, so every
+   component that already reads `bg-surface` or `text-ink` is correct in both
+   themes without a single `dark:` variant. That is the whole reason the palette
+   is expressed as semantic tokens.
+
+   The selector needs to outrank the `:root` that `@theme` emits, hence the
+   element-plus-attribute. Values were solved against WCAG AA rather than
+   eyeballed: body text clears 4.5:1 on every background it lands on, and
+   meaningful borders clear 3:1. Still warm rather than blue-black, to keep the
+   paper-and-clay identity of the light theme.
+   ========================================================================== */
+
+[data-theme='dark'] {
+  --color-canvas: #14120f;
+  --color-surface: #1c1917;
+  --color-surface-sunken: #262220;
+  --color-ink: #f4efe8;
+  --color-ink-secondary: #c9bdb1;
+  --color-ink-tertiary: #a3968a;
+  --color-ink-disabled: #6f655c;
+  --color-line: #3a3430;
+  --color-line-strong: #726b65;
+
+  --color-accent: #e6d9c9;
+  --color-accent-hover: #f2e7d9;
+  --color-accent-subtle: #2a241f;
+  --color-accent-muted: #756d60;
+  --color-on-accent: #1a1614;
+
+  --color-urgent: #e59076;
+  --color-urgent-subtle: #3a2019;
+  --color-caution: #d6a869;
+  --color-caution-subtle: #2e2418;
+  --color-success: #7fb99b;
+  --color-success-subtle: #1d2f26;
+  --color-danger: #e59076;
+
+  /* Shadows cannot be near-black on a near-black surface; they are a soft
+     lightening plus a hairline instead, or the overlays lose their edge. */
+  --shadow-hairline: 0 0 0 1px rgb(255 255 255 / 0.04);
+  --shadow-raised: 0 1px 2px rgb(0 0 0 / 0.4), 0 1px 1px rgb(0 0 0 / 0.3);
+  --shadow-overlay:
+    0 12px 32px -8px rgb(0 0 0 / 0.6), 0 4px 12px -4px rgb(0 0 0 / 0.4),
+    0 0 0 1px rgb(255 255 255 / 0.06);
+  --sheen: linear-gradient(180deg, rgb(255 255 255 / 0.04), rgb(255 255 255 / 0) 20%);
 }
 
 @keyframes fade-in {
@@ -145,9 +204,7 @@
   }
 
   body {
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0) 20%),
-      var(--color-canvas);
+    background: var(--sheen), var(--color-canvas);
     color: var(--color-ink);
     font-family: var(--font-sans);
     font-size: 14px;

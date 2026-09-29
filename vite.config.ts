@@ -8,6 +8,12 @@ import { apiDevServer } from './vite-plugins/api-dev-server.ts'
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), apiDevServer()],
+  server: {
+    // Pinned rather than left to Vite's fallback, so `npm run ui:audit` and
+    // anything else hardcoding the port keep working when 5173 is busy.
+    port: 5177,
+    strictPort: true,
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
