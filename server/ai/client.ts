@@ -53,8 +53,23 @@ const MODELS: readonly string[] = process.env.GEMINI_MODEL
 /** The model reported by /api/health: the one most requests will use. */
 const MODEL = MODELS[0] as string
 
-/** Serverless functions get killed on long requests; fail fast and cleanly. */
-const REQUEST_TIMEOUT_MS = 20_000
+/**
+ * Timekeeping for the whole request, not just one model.
+ *
+ * `vercel.json` caps a function at 30s, and Vercel answers anything past that
+ * with FUNCTION_INVOCATION_TIMEOUT — an opaque 500 for the person, and worse
+ * than a clean error because it says nothing about what went wrong. A ladder
+ * has to be costed against that ceiling, not just against a per-call timeout:
+ * five rungs at two SDK retries each could spend 200s against a 30s budget.
+ *
+ * So the ladder has three limits. Each attempt gets `ATTEMPT_TIMEOUT_MS`. Each
+ * rung is tried once, because the ladder *is* the retry strategy and letting the
+ * SDK also retry doubled the latency of every rung. And the walk stops once
+ * less than one attempt's worth of budget remains, so the function always gets
+ * to return a real, retryable error of its own.
+ */
+const ATTEMPT_TIMEOUT_MS = 12_000
+const TOTAL_BUDGET_MS = 26_000
 
 let client: GoogleGenAI | null = null
 
@@ -67,9 +82,20 @@ function getClient(): GoogleGenAI {
   }
   client = new GoogleGenAI({
     apiKey: API_KEY,
-    httpOptions: { timeout: REQUEST_TIMEOUT_MS, retryOptions: { attempts: 2 } },
+    httpOptions: { timeout: ATTEMPT_TIMEOUT_MS, retryOptions: { attempts: 1 } },
   })
   return client
+}
+
+/**
+ * Whether there is time left for another model.
+ *
+ * Deliberately pessimistic: a rung that would start with barely enough budget
+ * is worse than no rung, because a response the function never gets to send
+ * helps nobody.
+ */
+export function budgetAllowsAnotherAttempt(elapsedMs: number): boolean {
+  return TOTAL_BUDGET_MS - elapsedMs >= ATTEMPT_TIMEOUT_MS
 }
 
 export interface StructuredRequest<S extends z.ZodType> {
@@ -99,11 +125,21 @@ export async function generateStructured<S extends z.ZodType>(
 ): Promise<z.output<S>> {
   const ai = getClient()
   const responseSchema = toGeminiSchema(request.schema, request.schemaName)
+  const startedAt = Date.now()
 
   let text: string | undefined
   let lastError: unknown
 
   for (const model of MODELS) {
+    if (lastError && !budgetAllowsAnotherAttempt(Date.now() - startedAt)) {
+      // Out of budget with models still untried. Saying so is better than
+      // starting a rung that will be cut off mid-flight by the platform.
+      console.warn(
+        `[ai] out of time budget after ${Math.round((Date.now() - startedAt) / 1000)}s, stopping before ${model}`,
+      )
+      break
+    }
+
     try {
       const response = await ai.models.generateContent({
         model,
@@ -198,16 +234,19 @@ function translateProviderError(error: unknown): ReturnType<typeof aiUnavailable
  * ladder gave up, and the response was "check your connection" when every
  * later rung was healthy.
  *
- * The client's own `REQUEST_TIMEOUT_MS` is deliberately still terminal. That
- * abort is a property of how long *we* are prepared to wait, not of which model
- * is busy, so retrying the rest of the ladder would multiply the wait before
- * returning the same answer.
+ * So is our own attempt deadline. A model that has not answered in twelve
+ * seconds is slow, which is a fact about that model and not about the request,
+ * and the total budget — not the first timeout — is what bounds the walk.
  */
 function isCapacityError(error: unknown): boolean {
   const status = extractStatus(error)
   if (status === 429 || status === 500 || status === 503 || status === 504) return true
   const text = error instanceof Error ? error.message : String(error)
-  return /high demand|overloaded|UNAVAILABLE|rate limit|DEADLINE_EXCEEDED|deadline exceeded/i.test(text)
+  const name = typeof error === 'object' && error !== null ? (error as { name?: unknown }).name : undefined
+  if (name === 'AbortError' || name === 'TimeoutError') return true
+  return /high demand|overloaded|UNAVAILABLE|rate limit|DEADLINE_EXCEEDED|deadline exceeded|abort|timed out|timeout/i.test(
+    text,
+  )
 }
 
 /** Digs an HTTP status out of the SDK error without depending on its internals. */

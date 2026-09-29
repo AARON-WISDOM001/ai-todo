@@ -16,6 +16,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
+import { budgetAllowsAnotherAttempt } from '../server/ai/client.ts'
+
 const generateContent = vi.hoisted(() => vi.fn())
 
 // Only the client is faked. `Type` and the rest come from the real module,
@@ -205,17 +207,67 @@ describe('the model ladder', () => {
     expect(error.message).not.toMatch(/check your connection/i)
   })
 
-  it('does not walk the ladder on our own client-side timeout', async () => {
-    // The opposite case, and the reason the two are kept apart: this is a limit
-    // on how long we are willing to wait, not a busy model, so every further
-    // attempt would only make the person wait longer for the same failure.
-    generateContent.mockRejectedValue(Object.assign(new Error('The operation was aborted'), { name: 'AbortError' }))
+  it('stops walking the ladder when the time budget is spent', async () => {
+    // The regression this exists for: five rungs at two SDK retries each could
+    // spend 200s against a 30s function limit, and Vercel answers that with
+    // FUNCTION_INVOCATION_TIMEOUT — a bare 500 that says nothing about the
+    // cause. The walk has to end in time to return a real error.
+    let clock = 0
+    const now = vi.spyOn(Date, 'now').mockImplementation(() => clock)
+    generateContent.mockImplementation(async () => {
+      clock += 9_000
+      throw providerError(503, 'high demand')
+    })
     const generateStructured = await loadClient()
 
-    const error = (await generateStructured(request()).catch((e: unknown) => e)) as Error
+    const error = (await generateStructured(request()).catch((e: unknown) => e)) as {
+      code: string
+      toJSON: () => { retryable: boolean }
+    }
 
-    expect(generateContent).toHaveBeenCalledTimes(1)
-    expect(error.message).toMatch(/too long|connection/i)
+    expect(generateContent.mock.calls.length).toBeLessThan(5)
+    expect(error.code).toBe('ai_unavailable')
+    expect(error.toJSON().retryable).toBe(true)
+    now.mockRestore()
+  })
+
+  it('spends what is left of the budget on a second model before giving up', async () => {
+    // The guard is time, not an attempt cap. One 12s failure still leaves enough
+    // budget for exactly one more try, and that try is worth making.
+    let clock = 0
+    const now = vi.spyOn(Date, 'now').mockImplementation(() => clock)
+    generateContent.mockImplementation(async () => {
+      clock += 12_000
+      throw providerError(503, 'high demand')
+    })
+    const generateStructured = await loadClient()
+
+    await generateStructured(request()).catch(() => undefined)
+
+    expect(generateContent).toHaveBeenCalledTimes(2)
+    now.mockRestore()
+  })
+
+  it('budgets against a ceiling that fits inside the function limit', () => {
+    // Guards the arithmetic, so changing a constant cannot quietly reintroduce
+    // the timeout. 30s in vercel.json, 26s of budget, 12s per attempt.
+    expect(budgetAllowsAnotherAttempt(0)).toBe(true)
+    expect(budgetAllowsAnotherAttempt(13_000)).toBe(true)
+    expect(budgetAllowsAnotherAttempt(14_000)).toBe(true)
+    expect(budgetAllowsAnotherAttempt(15_000)).toBe(false)
+    expect(budgetAllowsAnotherAttempt(60_000)).toBe(false)
+  })
+
+  it('keeps walking the ladder on a client-side timeout, bounded by the budget', async () => {
+    // Our own attempt deadline firing means this model is slow, not that the
+    // request is malformed, so the next rung is worth a try. What stops the
+    // walk is the budget above, not the first abort.
+    generateContent
+      .mockRejectedValueOnce(Object.assign(new Error('The operation was aborted'), { name: 'AbortError' }))
+      .mockResolvedValueOnce({ text: JSON.stringify({ title: 'ok' }) })
+    const generateStructured = await loadClient()
+
+    expect(await generateStructured(request())).toEqual({ title: 'ok' })
   })
 
   it('does not retry the same model across the ladder', async () => {
