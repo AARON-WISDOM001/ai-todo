@@ -11,12 +11,18 @@ made specific decisions that are easy to accidentally undo.
 
 ```bash
 npm run dev          # dev server on :5177, with /api mounted from real handlers
-npm test             # 160 tests
+npm test             # the whole suite. No count here on purpose: a number in this
+                     # file goes stale, and a wrong number is worse than none.
 npm run typecheck    # tsc -b across app, server, and tests
 npm run lint         # oxlint
 npm run build        # typecheck + production build
 npm run check        # all four, in order. Run before every commit.
 ```
+
+`npm run dev` mirrors `.env.local` into `process.env` for the mounted handlers,
+so a key in `.env.local` works locally exactly as it does on Vercel. Without
+that, every local AI request fails with "not configured" while the same file
+works in production.
 
 `npm run check` is the gate. If it does not pass, the change is not finished.
 
@@ -122,8 +128,9 @@ raw hex values in components.
 
 ### Dark mode
 
-`src/lib/theme.tsx` owns the preference; `src/styles/index.css` owns the palette.
-Both must be touched together — see section 17.
+`src/lib/theme.tsx` owns the preference and `src/styles/index.css` owns the
+palette. Changing one without the other is the failure this subsection exists
+to prevent: a token that exists in only one theme renders as nothing.
 
 - Do **not** reach for `dark:` variants. The whole app themes through semantic
   tokens, so a `dark:` class is a bug: it hardcodes a colour that the dark
@@ -165,6 +172,15 @@ its place by answering "why this way and not the obvious way?".
 ## 10. Tests
 
 - Every bug fixed gets a test that fails before the fix. This is non-negotiable.
+- **Every route under `server/routes/` gets an HTTP test in
+  `tests/api-routes.test.ts` and an entry in `tests/function-bundle.test.ts`. A
+  new endpoint missing either is unfinished, not "mostly done".** Testing the
+  action function is not testing the endpoint: the schema guard, method guard,
+  error envelope, and deployed bundle are separate layers that fail separately.
+  This is not hypothetical — three of the four AI routes shipped with no HTTP
+  test at all, and a suite of 195 green tests said nothing about it. The
+  `describe.each` table in `api-routes.test.ts` and its coverage meta-test exist
+  so the next gap has to be a missing line rather than a silent omission.
 - Tests describe behaviour in user terms: "marks a task done and moves it out of
   the active list", not "dispatches toggle and updates state".
 - Do not mock more than necessary. `tests/app-flow.test.tsx` deliberately runs
@@ -173,7 +189,9 @@ its place by answering "why this way and not the obvious way?".
 - When adding an AI capability, test: the schema conversion, the rejection of
   malformed model output, and the filtering of invented ids.
 - Fixtures live in `tests/fixtures/tasks.ts`. Use `makeTask({ ...overrides })`
-  rather than writing out full task objects.
+  rather than writing out full task objects. The HTTP harness (`makeReq`,
+  `makeRes`, `parseBody`) is in `tests/helpers/api.ts`; do not redeclare it
+  per test file.
 
 ## 11. Adding an AI capability
 
@@ -185,11 +203,12 @@ its place by answering "why this way and not the obvious way?".
 4. Add the action to `server/ai/actions.ts`, keeping it a pure
    request → response function with all model interaction in `client.ts`.
 5. Add the route in `server/routes/ai/`, which should stay a three-line
-   `defineRoute` call. Not in `api/` — see section 16.
+   `defineRoute` call. Not in `api/` — see section 15.
 6. Add the entry point to `ai-command-bar.tsx`, disabled when its preconditions
    are unmet.
 7. Add tests: schema conversion, validation of a malformed reply, invented-id
-   filtering, and the UI path.
+   filtering, the UI path, and a row in the `ROUTES` table in
+   `tests/api-routes.test.ts` plus a new entry in `tests/function-bundle.test.ts`.
 
 ## 12. Adding a task feature
 
@@ -222,9 +241,12 @@ its place by answering "why this way and not the obvious way?".
 - Assuming the current user is one. The Today view, due-date labels, and
   `now`-dependent selectors must accept an injected `Date` for testability.
 - Writing a route into `api/`. That directory is generated and gitignored; see
-  section 16.
+  section 15.
+- Adding a rung to the model ladder without costing it against
+  `vercel.json`'s `maxDuration`. See section 16.
+- A new endpoint with no row in `tests/api-routes.test.ts`. See section 10.
 
-## 16. `api/` is generated, not authored
+## 15. `api/` is generated, not authored
 
 Route sources live in `server/routes/`. `npm run build` bundles each one into a
 self-contained `api/**/*.js` via `scripts/build-functions.mjs`, and Vercel
@@ -243,14 +265,39 @@ Rules:
 - Never add a route there directly. Add it under `server/routes/`.
 - The dev server mounts the real handlers from `server/routes/` through
   `vite-plugins/api-dev-server.ts`, so local and deployed behaviour cannot drift.
-- `tests/function-bundle.test.ts` bundles a route and runs it in a separate Node
-  process. It is the only test that exercises the deployed artefact; if you
+- `tests/function-bundle.test.ts` bundles every route and runs it in a separate
+  Node process. It is the only test that exercises the deployed artefact; if you
   change the bundler, it is the test that will notice.
 
-## 15. Current state
+## 16. The model ladder is a time budget, not just a list
+
+`server/ai/client.ts` tries several model ids in order, because Google both
+retires models and returns 503 for ids that are perfectly current. Three rules
+keep that from becoming an outage:
+
+- **Cost the ladder against `vercel.json`'s `maxDuration`,** not only against a
+  per-attempt timeout. Five rungs at two SDK retries each can outlast the
+  function limit, and Vercel answers that with `FUNCTION_INVOCATION_TIMEOUT` — a
+  bare 500 that names neither the cause nor the way out. The walk stops early
+  enough to return a real retryable error of the app's own.
+- **One attempt per rung.** The ladder *is* the retry strategy. Letting the SDK
+  retry as well doubled every rung's latency and is what broke production when
+  the list grew.
+- **504, `DEADLINE_EXCEEDED`, and a client-side abort all count as capacity.**
+  A gateway deadline is a loaded backend timing out, the same condition as a
+  503 under a different code. Treating it as fatal made one saturated rung end
+  the request while every later rung was healthy.
+
+If you add a rung, the ladder needs no new test to stay correct, but do confirm
+the new id actually answers: several ids that appear in Google's model list
+return 503 for minutes at a time, and "listed" is not "serving".
+
+## 17. Current state
 
 - Deployed: Vercel (static SPA + serverless `/api`).
 - Persistence: `localStorage`, versioned under `ai-todo:tasks:v1`.
+- Theme: `system` by default, persisted under `ai-todo:theme:v1`, applied by an
+  inline script before first paint.
 - AI: Gemini via `@google/genai`; key required, all manual features work without it.
 - Known gaps: no auth, per-instance rate limiting only, no undo on delete,
   English only, no cross-device sync.
