@@ -19,6 +19,8 @@ export type Overlay =
   | { kind: 'command'; action: AiAction; taskId?: string }
   | { kind: 'editor'; taskId: string | null }
 
+export type WorkspaceSection = 'tasks' | 'notes'
+
 interface WorkspaceValue {
   tasks: ReturnType<typeof useTasks>
   filters: TaskFilters
@@ -35,6 +37,8 @@ interface WorkspaceValue {
   overlay: Overlay
   openOverlay: (overlay: Exclude<Overlay, { kind: 'none' }>) => void
   closeOverlay: () => void
+  section: WorkspaceSection
+  setSection: (section: WorkspaceSection) => void
   /** True on viewports below the sidebar breakpoint. */
   isMobileNavOpen: boolean
   setMobileNavOpen: (open: boolean) => void
@@ -48,6 +52,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [filters, setFilters] = useState<TaskFilters>(DEFAULT_FILTERS)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [overlay, setOverlay] = useState<Overlay>({ kind: 'none' })
+  const [section, setSection] = useState<WorkspaceSection>('tasks')
   const [isMobileNavOpen, setMobileNavOpen] = useState(false)
 
   const setView = useCallback((view: TaskView) => {
@@ -113,6 +118,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       overlay,
       openOverlay,
       closeOverlay,
+      section,
+      setSection,
       isMobileNavOpen,
       setMobileNavOpen,
     }),
@@ -131,6 +138,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       overlay,
       openOverlay,
       closeOverlay,
+      section,
+      setSection,
       isMobileNavOpen,
     ],
   )

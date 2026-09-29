@@ -8,7 +8,7 @@ type Size = 'sm' | 'md' | 'lg'
 
 const VARIANTS: Record<Variant, string> = {
   primary:
-    'bg-accent text-on-accent shadow-[0_8px_20px_rgba(45,41,40,0.12)] hover:bg-accent-hover active:bg-accent-hover disabled:hover:bg-accent',
+    'bg-accent text-on-accent shadow-[var(--shadow-button)] hover:bg-accent-hover active:bg-accent-hover disabled:hover:bg-accent',
   secondary:
     'bg-surface text-ink border border-line hover:border-line-strong hover:bg-surface-sunken active:bg-surface-sunken',
   ghost: 'text-ink-secondary hover:bg-surface-sunken hover:text-ink active:bg-surface-sunken',

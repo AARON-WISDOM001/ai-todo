@@ -86,6 +86,25 @@ describe('mobile navigation drawer', () => {
     expect(drawer).toBeInTheDocument()
     expect(drawer.className).not.toContain('[animation-direction:reverse]')
   })
+
+  it('shows a single search bar and a visible Ask AI label', () => {
+    render(<App />)
+
+    expect(screen.getAllByPlaceholderText('Search tasks')).toHaveLength(1)
+    expect(askAiButton()).toHaveTextContent('Ask AI')
+  })
+})
+
+describe('personal notes', () => {
+  it('opens the Notes workspace from the sidebar', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getAllByRole('button', { name: 'Notes' })[0]!)
+
+    expect(screen.getByRole('heading', { name: 'Notes' })).toBeInTheDocument()
+    expect(screen.getByText('A place for the extra details')).toBeInTheDocument()
+  })
 })
 
 describe('create a task', () => {

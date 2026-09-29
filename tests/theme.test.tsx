@@ -42,8 +42,8 @@ function installMatchMedia() {
   })
 }
 
-function toggleTheme() {
-  return screen.getByRole('button', { name: /dark mode/i })
+function themeSelect() {
+  return screen.getByRole('combobox', { name: 'Color theme' })
 }
 
 /** Simulates the OS switching appearance, which must reach an undecided app. */
@@ -69,30 +69,32 @@ afterEach(() => {
   document.documentElement.removeAttribute('data-theme')
 })
 
-describe('the dark mode toggle', () => {
+describe('the appearance preference', () => {
   it('starts light on a device that reports a light appearance', () => {
     render(<App />)
 
     expect(document.documentElement.dataset.theme).toBe('light')
-    expect(toggleTheme()).toHaveAttribute('aria-pressed', 'false')
+    expect(themeSelect()).toHaveValue('system')
+    expect(document.documentElement.style.colorScheme).toBe('light')
   })
 
-  it('switches the whole app to dark and marks the control as on', async () => {
+  it('switches the whole app to dark and updates native control colors', async () => {
     const user = userEvent.setup()
     render(<App />)
 
-    await user.click(toggleTheme())
+    await user.selectOptions(themeSelect(), 'dark')
 
     expect(document.documentElement.dataset.theme).toBe('dark')
-    expect(toggleTheme()).toHaveAttribute('aria-pressed', 'true')
+    expect(document.documentElement.style.colorScheme).toBe('dark')
+    expect(themeSelect()).toHaveValue('dark')
   })
 
-  it('switches back to light on a second press', async () => {
+  it('switches back to light when selected', async () => {
     const user = userEvent.setup()
     render(<App />)
 
-    await user.click(toggleTheme())
-    await user.click(toggleTheme())
+    await user.selectOptions(themeSelect(), 'dark')
+    await user.selectOptions(themeSelect(), 'light')
 
     expect(document.documentElement.dataset.theme).toBe('light')
   })
@@ -101,7 +103,7 @@ describe('the dark mode toggle', () => {
     const user = userEvent.setup()
     const first = render(<App />)
 
-    await user.click(toggleTheme())
+    await user.selectOptions(themeSelect(), 'dark')
     first.unmount()
 
     render(<App />)
@@ -122,7 +124,7 @@ describe('the dark mode toggle', () => {
     const user = userEvent.setup()
     render(<App />)
 
-    await user.click(toggleTheme())
+    await user.selectOptions(themeSelect(), 'dark')
     expect(document.documentElement.dataset.theme).toBe('dark')
 
     // The OS now says light. The person said dark; the person wins.
@@ -157,20 +159,19 @@ describe('the dark mode toggle', () => {
     expect(document.documentElement.dataset.theme).toBe('dark')
   })
 
-  it('turns the theme to light on the first press when the system is already dark', async () => {
-    // Toggling out of `system` has to answer from the resolved theme, not the
-    // stored string. An implementation that compared the stored `'system'`
-    // against `'dark'` would get this wrong and appear to do nothing, which is
-    // a control that looks broken.
+  it('allows the system preference to be restored after an explicit choice', async () => {
     media.matches = true
     const user = userEvent.setup()
     render(<App />)
 
     expect(document.documentElement.dataset.theme).toBe('dark')
 
-    await user.click(toggleTheme())
-
+    await user.selectOptions(themeSelect(), 'light')
     expect(document.documentElement.dataset.theme).toBe('light')
+
+    await user.selectOptions(themeSelect(), 'system')
+
+    expect(document.documentElement.dataset.theme).toBe('dark')
   })
 
   it('still switches when storage is unavailable, it just will not remember', async () => {
@@ -183,7 +184,7 @@ describe('the dark mode toggle', () => {
     })
 
     render(<App />)
-    await user.click(toggleTheme())
+    await user.selectOptions(themeSelect(), 'dark')
 
     expect(document.documentElement.dataset.theme).toBe('dark')
     getItem.mockRestore()

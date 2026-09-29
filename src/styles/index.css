@@ -61,6 +61,7 @@
   --shadow-overlay:
     0 12px 32px -8px rgb(9 9 11 / 0.12), 0 4px 12px -4px rgb(9 9 11 / 0.06),
     0 0 0 1px rgb(9 9 11 / 0.05);
+  --shadow-button: 0 8px 20px rgb(45 41 40 / 0.12);
   /* Light bloom on the top of the page. Flipped for dark, where a white sheen
      reads as fog rather than as paper. */
   --sheen: linear-gradient(180deg, rgb(255 255 255 / 0.2), rgb(255 255 255 / 0) 20%);
@@ -124,7 +125,16 @@
   --shadow-overlay:
     0 12px 32px -8px rgb(0 0 0 / 0.6), 0 4px 12px -4px rgb(0 0 0 / 0.4),
     0 0 0 1px rgb(255 255 255 / 0.06);
+  --shadow-button: 0 6px 18px rgb(0 0 0 / 0.35);
   --sheen: linear-gradient(180deg, rgb(255 255 255 / 0.04), rgb(255 255 255 / 0) 20%);
+}
+
+:root {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
 }
 
 @keyframes fade-in {

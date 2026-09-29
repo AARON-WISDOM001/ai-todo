@@ -46,7 +46,7 @@ export function Logo({ size = 22, className }: { size?: number; className?: stri
       <rect x="1.5" y="1.5" width="21" height="21" rx="6" fill="var(--color-ink)" />
       <path
         d="M7 12.4l3.1 3.1L17 8.6"
-        stroke="white"
+        stroke="var(--color-on-accent)"
         strokeWidth="2.1"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -64,15 +64,15 @@ export function Sidebar({
   /** Called after any navigation, so the mobile drawer can close itself. */
   onNavigate?: () => void
 }) {
-  const { filters, setView, viewCountsForSidebar, openOverlay, tasks, isMobileNavOpen, setMobileNavOpen } =
+  const { filters, setView, viewCountsForSidebar, openOverlay, tasks, isMobileNavOpen, setMobileNavOpen, section, setSection } =
     useSidebarData()
-  const { resolved, toggle } = useTheme()
+  const { preference, setPreference } = useTheme()
 
   return (
     <nav
       aria-label="Task views"
       className={cn(
-        'flex h-full w-[84vw] max-w-[320px] flex-col border-r border-line bg-[rgba(253,249,244,0.95)] lg:w-[240px] lg:max-w-none',
+        'flex h-full w-[84vw] max-w-[320px] flex-col border-r border-line bg-surface lg:w-60 lg:max-w-none',
         className,
       )}
     >
@@ -109,10 +109,11 @@ export function Sidebar({
                 type="button"
                 onClick={() => {
                   setView(view)
+                  setSection('tasks')
                   setMobileNavOpen(false)
                   onNavigate?.()
                 }}
-                aria-current={active ? 'page' : undefined}
+                aria-current={active && section === 'tasks' ? 'page' : undefined}
                 className={cn(
                   'flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px]',
                   'transition-colors duration-150',
@@ -137,6 +138,26 @@ export function Sidebar({
             </li>
           )
         })}
+        <li>
+          <button
+            type="button"
+            onClick={() => {
+              setSection('notes')
+              setMobileNavOpen(false)
+              onNavigate?.()
+            }}
+            aria-current={section === 'notes' ? 'page' : undefined}
+            className={cn(
+              'flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] transition-colors duration-150',
+              section === 'notes'
+                ? 'bg-surface-sunken font-medium text-ink'
+                : 'text-ink-secondary hover:bg-surface-sunken hover:text-ink',
+            )}
+          >
+            <NotesNavIcon />
+            Notes
+          </button>
+        </li>
       </ul>
 
       <div className="shrink-0 space-y-0.5 border-t border-line px-3 py-3">
@@ -168,37 +189,19 @@ export function Sidebar({
           </button>
         )}
 
-        <button
-          type="button"
-          onClick={toggle}
-          aria-pressed={resolved === 'dark'}
-          className={cn(
-            'flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px]',
-            'text-ink-secondary transition-colors duration-150 hover:bg-surface-sunken hover:text-ink',
-          )}
-        >
-          {resolved === 'dark' ? (
-            <svg viewBox="0 0 16 16" className="size-4" fill="none" aria-hidden="true">
-              <circle cx="8" cy="8" r="3.1" stroke="currentColor" strokeWidth="1.3" />
-              <path
-                d="M8 1.5v1.4M8 13.1v1.4M14.5 8h-1.4M2.9 8H1.5M12.6 3.4l-1 1M4.4 11.6l-1 1M12.6 12.6l-1-1M4.4 4.4l-1-1"
-                stroke="currentColor"
-                strokeWidth="1.3"
-                strokeLinecap="round"
-              />
-            </svg>
-          ) : (
-            <svg viewBox="0 0 16 16" className="size-4" fill="none" aria-hidden="true">
-              <path
-                d="M13.5 9.6A5.8 5.8 0 016.4 2.5a5.8 5.8 0 107.1 7.1z"
-                stroke="currentColor"
-                strokeWidth="1.3"
-                strokeLinejoin="round"
-              />
-            </svg>
-          )}
-          Dark mode
-        </button>
+        <label className="flex items-center justify-between gap-3 rounded-md px-2.5 py-1.5 text-[13px] text-ink-secondary">
+          <span>Appearance</span>
+          <select
+            aria-label="Color theme"
+            value={preference}
+            onChange={(event) => setPreference(event.target.value as 'system' | 'light' | 'dark')}
+            className="h-8 rounded border border-line bg-surface px-2 text-xs text-ink focus:border-accent focus:ring-2 focus:ring-accent/20 focus:outline-none"
+          >
+            <option value="system">System</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </label>
       </div>
 
       <p className="sr-only" aria-live="polite">
@@ -222,6 +225,8 @@ function useSidebarData() {
   const workspace = useWorkspace()
   return {
     filters: workspace.filters,
+    section: workspace.section,
+    setSection: workspace.setSection,
     setView: workspace.setView,
     viewCountsForSidebar: workspace.tasks.viewCounts,
     openOverlay: workspace.openOverlay,
@@ -229,4 +234,12 @@ function useSidebarData() {
     isMobileNavOpen: workspace.isMobileNavOpen,
     setMobileNavOpen: workspace.setMobileNavOpen,
   }
+}
+
+function NotesNavIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="size-4" fill="none" aria-hidden="true">
+      <path d="M3 1.75h6.5l3.5 3.5v9H3zM9.5 1.75v3.5H13M5.5 8h5M5.5 10.75h5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
 }

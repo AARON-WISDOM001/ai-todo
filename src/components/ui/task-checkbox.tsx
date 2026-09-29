@@ -61,7 +61,7 @@ export const TaskCheckbox = forwardRef<HTMLButtonElement, TaskCheckboxProps>(
           <path
             d="M2.5 6.2 4.8 8.5 9.5 3.8"
             fill="none"
-            stroke="white"
+            stroke="var(--color-on-accent)"
             strokeWidth="1.75"
             strokeLinecap="round"
             strokeLinejoin="round"

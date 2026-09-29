@@ -82,6 +82,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.documentElement.dataset.theme = resolved
+    document.documentElement.style.colorScheme = resolved
+    const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+    if (themeColor) {
+      themeColor.content = getComputedStyle(document.documentElement).getPropertyValue('--color-canvas').trim()
+    }
   }, [resolved])
 
   const setPreference = useCallback((value: ThemePreference) => {

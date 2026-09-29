@@ -10,8 +10,7 @@ import { useWorkspace } from './workspace-context.tsx'
 const SORT_OPTIONS = Object.entries(SORT_LABELS) as [SortOrder, string][]
 
 export function WorkspaceHeader({ className }: { className?: string }) {
-  const { filters, setSearch, setSort, tasks, openOverlay, setMobileNavOpen, selectedId } =
-    useWorkspace()
+  const { filters, setSearch, tasks, openOverlay, setMobileNavOpen, selectedId, section } = useWorkspace()
   const searchRef = useRef<HTMLInputElement>(null)
 
   // ⌘K / Ctrl-K focuses search from anywhere; ⌘\ is the AI command palette.
@@ -46,19 +45,21 @@ export function WorkspaceHeader({ className }: { className?: string }) {
 
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-[15px] font-semibold tracking-[-0.02em]">
-              {VIEW_LABELS[filters.view]}
+              {section === 'notes' ? 'Notes' : VIEW_LABELS[filters.view]}
             </h1>
             <p className="tabular text-xs text-ink-tertiary">
-              {count === 0
-                ? 'Nothing here yet'
-                : `${count} ${count === 1 ? 'task' : 'tasks'}${
-                    filters.view === 'completed' ? ' completed' : ' open'
-                  }`}
+              {section === 'notes'
+                ? 'Ideas and details, saved on this device'
+                : count === 0
+                  ? 'Nothing here yet'
+                  : `${count} ${count === 1 ? 'task' : 'tasks'}${
+                      filters.view === 'completed' ? ' completed' : ' open'
+                    }`}
             </p>
           </div>
         </div>
 
-        <div className="flex min-w-0 items-center gap-2 sm:flex-none">
+        {section === 'tasks' && <div className="flex min-w-0 items-center gap-2 sm:flex-none">
           {/* Search keeps its width on desktop and drops to its own row on mobile. */}
           <div className="relative min-w-0 flex-1 sm:flex-none">
             <SearchIcon />
@@ -88,22 +89,7 @@ export function WorkspaceHeader({ className }: { className?: string }) {
 
           <label className="hidden items-center md:flex">
             <span className="sr-only">Sort tasks</span>
-            <select
-              value={filters.sort}
-              onChange={(event) => setSort(event.target.value as SortOrder)}
-              className={cn(
-                'h-9 cursor-pointer appearance-none rounded-md border border-line bg-surface',
-                'pr-7 pl-2.5 text-[13px] text-ink-secondary transition-colors hover:border-line-strong',
-                'focus:border-accent focus:ring-2 focus:ring-accent/20 focus:outline-none',
-              )}
-            >
-              {SORT_OPTIONS.map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown />
+            <SortSelect />
           </label>
 
           <Button
@@ -118,46 +104,51 @@ export function WorkspaceHeader({ className }: { className?: string }) {
             className="shrink-0"
           >
             <SparkleIcon />
-            <span className="hidden sm:inline">
+            <span className="inline">
               {selectedId ? 'Improve with AI' : 'Ask AI'}
             </span>
             <Kbd className="hidden bg-on-accent/15 text-on-accent/80 lg:inline-flex">⌘J</Kbd>
           </Button>
-        </div>
+        </div>}
       </div>
 
-      <div className="border-t border-line px-3 py-2 sm:hidden">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <SearchIcon className="left-2.5" />
-            <input
-              type="search"
-              value={filters.search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search tasks"
-              aria-label="Search tasks by title, description, or subtask"
-              className="h-9 w-full rounded-md border border-line bg-surface-sunken pr-3 pl-8 text-[13px] focus:border-accent focus:bg-surface focus:ring-2 focus:ring-accent/20 focus:outline-none"
-            />
-          </div>
-
-          <label className="relative shrink-0">
+      {/* Below md the header row has no room for sort beside search and the AI
+          button, so it gets its own row. Dropping this took sorting away from
+          every phone and tablet user, which no unit test would have caught. */}
+      {section === 'tasks' && (
+        <div className="flex justify-end border-t border-line px-3 py-2 md:hidden">
+          <label className="flex items-center">
             <span className="sr-only">Sort tasks</span>
-            <select
-              value={filters.sort}
-              onChange={(event) => setSort(event.target.value as SortOrder)}
-              className="h-9 cursor-pointer appearance-none rounded-md border border-line bg-surface pr-7 pl-2.5 text-[13px] text-ink-secondary transition-colors hover:border-line-strong focus:border-accent focus:ring-2 focus:ring-accent/20 focus:outline-none"
-            >
-              {SORT_OPTIONS.map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown />
+            <SortSelect />
           </label>
         </div>
-      </div>
+      )}
     </header>
+  )
+}
+
+function SortSelect() {
+  const { filters, setSort } = useWorkspace()
+  return (
+    <span className="relative">
+      <select
+        aria-label="Sort tasks"
+        value={filters.sort}
+        onChange={(event) => setSort(event.target.value as SortOrder)}
+        className={cn(
+          'h-9 cursor-pointer appearance-none rounded-md border border-line bg-surface',
+          'pr-7 pl-2.5 text-[13px] text-ink-secondary transition-colors hover:border-line-strong',
+          'focus:border-accent focus:ring-2 focus:ring-accent/20 focus:outline-none',
+        )}
+      >
+        {SORT_OPTIONS.map(([value, label]) => (
+          <option key={value} value={value}>
+            {label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown />
+    </span>
   )
 }
 

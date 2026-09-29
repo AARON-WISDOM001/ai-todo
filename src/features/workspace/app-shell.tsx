@@ -12,6 +12,7 @@ import { ProductivityStrip, WorkspaceHeader } from './workspace-header.tsx'
 import { useWorkspace } from './workspace-context.tsx'
 import { PRIORITIES, type Priority } from '../../../shared/task.ts'
 import { TASK_VIEWS, VIEW_LABELS, type TaskView } from '../tasks/task-selectors.ts'
+import { NotesView } from '../notes/notes-view.tsx'
 
 /**
  * Application layout.
@@ -24,7 +25,7 @@ import { TASK_VIEWS, VIEW_LABELS, type TaskView } from '../tasks/task-selectors.
  *                    one thing a shrunk desktop layout always gets wrong.
  */
 export function AppShell() {
-  const { tasks } = useWorkspace()
+  const { tasks, section } = useWorkspace()
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-canvas lg:flex-row">
@@ -47,18 +48,24 @@ export function AppShell() {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <WorkspaceHeader />
 
-        <main className="flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,rgba(253,249,244,0.72),rgba(241,236,229,0.38))]">
-          <div className="hidden border-b border-line bg-surface/80 sm:block">
-            <ProductivityStrip />
-          </div>
+        <main className="flex min-h-0 flex-1 flex-col bg-canvas">
+          {section === 'notes' ? (
+            <NotesView />
+          ) : (
+            <>
+              <div className="hidden border-b border-line bg-surface/80 sm:block">
+                <ProductivityStrip />
+              </div>
 
-          <QuickAdd className="shrink-0" />
+              <QuickAdd className="shrink-0" />
 
-          <FilterBar className="shrink-0" />
+              <FilterBar className="shrink-0" />
 
-          <div id="task-list" className="flex min-h-0 flex-1 flex-col">
-            <TaskList />
-          </div>
+              <div id="task-list" className="flex min-h-0 flex-1 flex-col">
+                <TaskList />
+              </div>
+            </>
+          )}
         </main>
       </div>
 
@@ -96,7 +103,7 @@ function MobileNavDrawer() {
   return (
     <div className="fixed inset-0 z-40 lg:hidden">
       <div
-        className="absolute inset-0 animate-[var(--animate-fade-in)] bg-ink/25"
+        className="absolute inset-0 animate-fade-in bg-ink/25"
         onClick={() => setMobileNavOpen(false)}
         aria-hidden="true"
       />
@@ -106,7 +113,7 @@ function MobileNavDrawer() {
         aria-modal="true"
         aria-label="Navigation"
         tabIndex={-1}
-        className="absolute inset-y-0 left-0 animate-[var(--animate-slide-in-right)] outline-none"
+        className="absolute inset-y-0 left-0 animate-slide-in-right outline-none"
       >
         <Sidebar className="shadow-overlay" onNavigate={() => setMobileNavOpen(false)} />
       </div>
@@ -171,12 +178,13 @@ function FilterBar({ className }: { className?: string }) {
 
 /** Bottom navigation for small screens. Thumb-zone tabs mirror the sidebar views. */
 function MobileTabBar() {
-  const { filters, setView, openOverlay } = useWorkspace()
+  const { filters, setView, setSection, section, openOverlay } = useWorkspace()
 
   return (
     <nav
       aria-label="Task views"
-      className="grid shrink-0 grid-cols-5 border-t border-line bg-surface pt-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:hidden"
+      data-mobile-tabbar
+      className="grid shrink-0 grid-cols-6 border-t border-line bg-surface pt-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:hidden"
     >
       {TASK_VIEWS.map((view) => {
         const active = filters.view === view
@@ -184,11 +192,14 @@ function MobileTabBar() {
           <button
             key={view}
             type="button"
-            onClick={() => setView(view)}
-            aria-current={active ? 'page' : undefined}
+            onClick={() => {
+              setSection('tasks')
+              setView(view)
+            }}
+            aria-current={active && section === 'tasks' ? 'page' : undefined}
             className={cn(
-              'flex min-h-[48px] flex-col items-center justify-center gap-0.5 px-1 py-1 text-[10px] leading-tight font-medium transition-colors',
-              active ? 'text-accent' : 'text-ink-tertiary',
+              'flex min-h-12 flex-col items-center justify-center gap-0.5 px-1 py-1 text-[10px] leading-tight font-medium transition-colors',
+              active && section === 'tasks' ? 'text-accent' : 'text-ink-tertiary',
             )}
           >
             <MobileViewIcon view={view} />
@@ -199,8 +210,21 @@ function MobileTabBar() {
 
       <button
         type="button"
+        onClick={() => setSection('notes')}
+        aria-current={section === 'notes' ? 'page' : undefined}
+        className={cn(
+          'flex min-h-12 flex-col items-center justify-center gap-0.5 px-1 py-1 text-[10px] leading-tight font-medium transition-colors',
+          section === 'notes' ? 'text-accent' : 'text-ink-tertiary',
+        )}
+      >
+        <NotesIcon />
+        <span className="max-w-full truncate">Notes</span>
+      </button>
+
+      <button
+        type="button"
         onClick={() => openOverlay({ kind: 'command', action: 'create' })}
-        className="flex min-h-[48px] flex-col items-center justify-center gap-0.5 px-1 py-1 text-[10px] leading-tight font-medium text-accent"
+        className="flex min-h-12 flex-col items-center justify-center gap-0.5 px-1 py-1 text-[10px] leading-tight font-medium text-accent"
       >
         <span className="grid size-7 place-items-center rounded-lg bg-accent text-on-accent">
           <svg viewBox="0 0 16 16" className="size-3.5" fill="currentColor" aria-hidden="true">
@@ -210,6 +234,14 @@ function MobileTabBar() {
         Ask AI
       </button>
     </nav>
+  )
+}
+
+function NotesIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="size-4.5" fill="none" aria-hidden="true">
+      <path d="M3 1.75h6.5l3.5 3.5v9H3zM9.5 1.75v3.5H13M5.5 8h5M5.5 10.75h5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   )
 }
 
@@ -248,7 +280,7 @@ function ToastHost({
       role="status"
       aria-live={notice.tone === 'error' ? 'assertive' : 'polite'}
       className={cn(
-        'fixed right-4 bottom-4 z-50 flex max-w-sm animate-[var(--animate-slide-up)] items-start gap-2.5',
+        'fixed right-4 bottom-4 z-50 flex max-w-sm animate-slide-up items-start gap-2.5',
         'rounded-lg border border-line bg-surface px-3.5 py-3 shadow-overlay',
         'mb-[calc(env(safe-area-inset-bottom)+4.5rem)] md:mb-0',
         notice.tone === 'error' && 'border-urgent/30',

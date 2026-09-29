@@ -121,8 +121,41 @@ const OVERLAYS = [
     width: 1440,
     height: 900,
     seed: { theme: 'light' },
-    setup: `[...document.querySelectorAll('button')].find(b => /Dark mode/.test(b.textContent))?.click()`,
+    // Appearance is a three-way select, not a toggle button, so the scenario
+    // drives the select. React tracks the value on the DOM node, so the native
+    // setter is required — assigning `.value` directly would not fire onChange.
+    setup: `(() => {
+      const select = document.querySelector('select[aria-label="Color theme"]')
+      if (!select) return
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(select, 'dark')
+      select.dispatchEvent(new Event('change', { bubbles: true }))
+    })()`,
     expect: 'html[data-theme="dark"]',
+  },
+  // Notes is a second workspace section with its own layout: a two-pane
+  // master/detail on desktop, a stacked list on mobile. It is seeded and
+  // entered by click so the scenario covers the same path a person takes,
+  // and the third seeded note is deliberately empty to check the fallbacks for
+  // an untitled note and for an empty body.
+  {
+    name: 'notes-desktop',
+    width: 1440,
+    height: 900,
+    seed: { notes: true },
+    // Zero task rows is correct in Notes; the check would otherwise flag the
+    // absence of the task list this section is not meant to render.
+    expectTasks: 0,
+    setup: `[...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Notes')?.click()`,
+    expect: 'section[aria-label="Notes"]',
+  },
+  {
+    name: 'notes-mobile-dark',
+    width: 390,
+    height: 844,
+    seed: { notes: true, theme: 'dark' },
+    expectTasks: 0,
+    setup: `[...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Notes')?.click()`,
+    expect: 'section[aria-label="Notes"]',
   },
   {
     name: 'dark-task-editor',
@@ -315,6 +348,11 @@ async function audit(viewport, sessionSend) {
       ];
       localStorage.setItem('ai-todo:tasks:v1', JSON.stringify(tasks));
       ${viewport.seed?.theme ? `localStorage.setItem('ai-todo:theme:v1', ${JSON.stringify(viewport.seed.theme)});` : ''}
+      ${viewport.seed?.notes ? `localStorage.setItem('ai-todo:notes:v1', JSON.stringify([
+        { id: 'n1', title: 'Launch retro — what to keep', body: 'The pairing session on Thursday worked well. Keep the rotating driver, drop the standup overlap.', createdAt: now.toISOString(), updatedAt: now.toISOString() },
+        { id: 'n2', title: 'Supplier contact', body: 'Ask Maya about the replacement delivery window before the invoice runs on the 14th.', createdAt: now.toISOString(), updatedAt: now.toISOString() },
+        { id: 'n3', title: '', body: '', createdAt: now.toISOString(), updatedAt: now.toISOString() },
+      ]));` : ''}
       return localStorage.getItem('ai-todo:tasks:v1').length;
     })()`)
   if (!seeded.result?.value) {
@@ -531,19 +569,37 @@ function inspect() {
 
   /* --- required regions per breakpoint ------------------------------------ */
   const hasSidebarNav = !!document.querySelector('nav[aria-label="Task views"]')
-  const hasTabBar = Array.from(document.querySelectorAll('nav[aria-label="Task views"]')).some(
-    (el) => getComputedStyle(el).position === 'static' && el.querySelectorAll('button').length === 5,
-  )
+  // The tab bar is identified by a hook rather than by counting buttons. The
+  // count used to be hard-coded to 5, so adding the Notes tab made every mobile
+  // scenario report a missing tab bar — an audit that breaks when the app grows
+  // gets ignored, and then it catches nothing.
+  const hasTabBar = !!document.querySelector('nav[data-mobile-tabbar]')
+  // Notes replaces the task surface entirely, so the composer and the task
+  // search are legitimately absent there. Asserting them anyway reports a
+  // problem for a correct screen and trains the reader to ignore the section.
+  const inNotes = !!document.querySelector('section[aria-label="Notes"]')
+  // Presence is not enough: the desktop sort select stays in the DOM below md
+  // and is merely hidden by a `hidden md:flex` label, so a plain querySelector
+  // finds it on a phone and the guard can never fail. Require it to be laid out.
+  const hasSort = Array.from(document.querySelectorAll('select[aria-label="Sort tasks"]')).some((el) => {
+    const rect = el.getBoundingClientRect()
+    return rect.width > 0 && rect.height > 0
+  })
   const hasComposer = !!document.querySelector('#quick-add')
   const hasSearch = !!document.querySelector('input[type="search"]')
   const hasSkipLink = !!document.querySelector('a[href="#task-list"]')
 
-  if (!hasComposer) problems.missingRegions.push('task composer missing')
-  if (!hasSearch) problems.missingRegions.push('search input missing')
+  if (!inNotes && !hasComposer) problems.missingRegions.push('task composer missing')
+  if (!inNotes && !hasSearch) problems.missingRegions.push('search input missing')
   if (!hasSkipLink) problems.missingRegions.push('skip link missing')
   if (!hasSidebarNav) problems.missingRegions.push('primary navigation missing')
   if (window.innerWidth >= 1024 && !hasSidebarNav) problems.missingRegions.push('desktop sidebar missing')
   if (window.innerWidth < 768 && !hasTabBar) problems.missingRegions.push('mobile tab bar missing')
+  // Sorting used to live in a mobile-only row that was removed during a header
+  // refactor, which silently left phones and tablets unable to change sort.
+  if (!inNotes && window.innerWidth < 768 && !hasSort) {
+    problems.missingRegions.push('sort control missing below md')
+  }
 
   return {
     taskCount: rows.length,
