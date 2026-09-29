@@ -24,13 +24,17 @@ const API_KEY = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? ''
  * Models to try, in order.
  *
  * A single model id is not a stable default. Google both retires models and
- * intermittently returns 503 "high demand" for ids that are perfectly current
- * — on 2026-09-28, 3.8-flash, 3.7-flash, and 3.5-flash were all serving 503
- * while 3.6-flash answered in under two seconds. Pinning one id would make the
- * app's availability a function of Google's load rather than of anything we
- * control, so each request walks this list and falls through on capacity errors
- * only. Every entry accepts the same response schema, so falling through is
- * invisible to the user.
+ * intermittently returns 503 "high demand" for ids that are perfectly current.
+ * The list is long for that reason: on 2026-09-29, 3.6-flash, 3.8-flash,
+ * 3.7-flash and flash-latest were *all* serving 503 at the same time, so a
+ * three-rung ladder made the app look broken while models that answered in one
+ * request sat unused two entries down. Each request walks this list and falls
+ * through on capacity errors only. Every entry accepts the same response
+ * schema, so falling through is invisible to the user.
+ *
+ * Ordering is a preference, not a rule: newest first, the moving `-latest`
+ * alias next, and an older lite model last as the option most likely to be
+ * serving when everything newer is saturated.
  *
  * An explicit `GEMINI_MODEL` is honoured on its own and never silently
  * substituted: if an operator pins a model, they want that model or an error,
@@ -38,7 +42,13 @@ const API_KEY = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? ''
  */
 const MODELS: readonly string[] = process.env.GEMINI_MODEL
   ? [process.env.GEMINI_MODEL]
-  : ['gemini-3.6-flash', 'gemini-3.8-flash', 'gemini-flash-latest']
+  : [
+      'gemini-3.6-flash',
+      'gemini-3.8-flash',
+      'gemini-3.5-flash',
+      'gemini-flash-latest',
+      'gemini-3.1-flash-lite',
+    ]
 
 /** The model reported by /api/health: the one most requests will use. */
 const MODEL = MODELS[0] as string
@@ -167,7 +177,7 @@ function translateProviderError(error: unknown): ReturnType<typeof aiUnavailable
   if (status === 429) {
     return aiUnavailable('The AI service is busy right now. Please try again in a moment.')
   }
-  if (status === 500 || status === 503) {
+  if (status === 500 || status === 503 || status === 504) {
     return aiUnavailable('The AI service is temporarily unavailable. Please try again.')
   }  if (/abort|timeout|timed out/i.test(text)) {
     return aiUnavailable('The AI took too long to respond. Please try again.')
@@ -181,12 +191,23 @@ function translateProviderError(error: unknown): ReturnType<typeof aiUnavailable
  * Deliberately narrow: capacity and overload only. Anything else — a bad key, a
  * schema the model refuses, a safety block — is a property of the request, not
  * of the model, and will recur on every entry in the ladder.
+ *
+ * 504 and `DEADLINE_EXCEEDED` belong here. A gateway deadline is a loaded
+ * backend timing out, which is the same condition as a 503 wearing a different
+ * code, and it was treated as fatal: one saturated rung returned 504, the
+ * ladder gave up, and the response was "check your connection" when every
+ * later rung was healthy.
+ *
+ * The client's own `REQUEST_TIMEOUT_MS` is deliberately still terminal. That
+ * abort is a property of how long *we* are prepared to wait, not of which model
+ * is busy, so retrying the rest of the ladder would multiply the wait before
+ * returning the same answer.
  */
 function isCapacityError(error: unknown): boolean {
   const status = extractStatus(error)
-  if (status === 429 || status === 500 || status === 503) return true
+  if (status === 429 || status === 500 || status === 503 || status === 504) return true
   const text = error instanceof Error ? error.message : String(error)
-  return /high demand|overloaded|UNAVAILABLE|rate limit/i.test(text)
+  return /high demand|overloaded|UNAVAILABLE|rate limit|DEADLINE_EXCEEDED|deadline exceeded/i.test(text)
 }
 
 /** Digs an HTTP status out of the SDK error without depending on its internals. */

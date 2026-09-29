@@ -170,6 +170,54 @@ describe('the model ladder', () => {
     expect(models[0]).not.toBe(models[1])
   })
 
+  it('falls through when a rung returns a 504, since a deadline is load too', async () => {
+    // 504 is a loaded backend timing out. Treating it as fatal made one
+    // saturated rung end the request while the rest of the ladder was healthy.
+    generateContent
+      .mockRejectedValueOnce(providerError(504, 'Deadline exceeded before operation could complete.'))
+      .mockResolvedValueOnce({ text: JSON.stringify({ title: 'Draft the report' }) })
+    const generateStructured = await loadClient()
+
+    const result = await generateStructured(request())
+
+    expect(result).toEqual({ title: 'Draft the report' })
+    expect(generateContent).toHaveBeenCalledTimes(2)
+  })
+
+  it('falls through on a 504 reported without a status code', async () => {
+    // The status is not always on the error object, so the text has to be
+    // enough on its own.
+    generateContent
+      .mockRejectedValueOnce(new Error('{"error":{"status":"DEADLINE_EXCEEDED"}}'))
+      .mockResolvedValueOnce({ text: JSON.stringify({ title: 'ok' }) })
+    const generateStructured = await loadClient()
+
+    expect(await generateStructured(request())).toEqual({ title: 'ok' })
+  })
+
+  it('blames the service, not the connection, when the ladder ends in a 504', async () => {
+    generateContent.mockRejectedValue(providerError(504, 'Deadline exceeded'))
+    const generateStructured = await loadClient()
+
+    const error = (await generateStructured(request()).catch((e: unknown) => e)) as Error
+
+    expect(error.message).toMatch(/temporarily unavailable/i)
+    expect(error.message).not.toMatch(/check your connection/i)
+  })
+
+  it('does not walk the ladder on our own client-side timeout', async () => {
+    // The opposite case, and the reason the two are kept apart: this is a limit
+    // on how long we are willing to wait, not a busy model, so every further
+    // attempt would only make the person wait longer for the same failure.
+    generateContent.mockRejectedValue(Object.assign(new Error('The operation was aborted'), { name: 'AbortError' }))
+    const generateStructured = await loadClient()
+
+    const error = (await generateStructured(request()).catch((e: unknown) => e)) as Error
+
+    expect(generateContent).toHaveBeenCalledTimes(1)
+    expect(error.message).toMatch(/too long|connection/i)
+  })
+
   it('does not retry the same model across the ladder', async () => {
     generateContent.mockRejectedValue(providerError(503, 'high demand'))
     const generateStructured = await loadClient()

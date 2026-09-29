@@ -11,6 +11,7 @@
  */
 
 import type { Plugin } from 'vite'
+import { loadEnv } from 'vite'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
 type Handler = (req: unknown, res: unknown) => void | Promise<void>
@@ -33,6 +34,19 @@ export function apiDevServer(): Plugin {
     name: 'ai-todo:api-dev-server',
     apply: 'serve',
     configureServer(server) {
+      // The handlers read `process.env`, which is how they work on Vercel.
+      // Vite only exposes `VITE_`-prefixed variables through `import.meta.env`,
+      // so a `.env.local` holding `GEMINI_API_KEY` would be silently ignored and
+      // every local AI request would fail with "not configured" while the same
+      // file works fine in production. Mirroring the file into `process.env`
+      // here is what makes local behaviour match deployed behaviour.
+      //
+      // Existing values win, so a real exported variable still takes priority
+      // over the file.
+      for (const [key, value] of Object.entries(loadEnv(server.config.mode, server.config.root, ''))) {
+        if (process.env[key] === undefined) process.env[key] = value
+      }
+
       server.middlewares.use(async (req: IncomingMessage, res: ServerResponse, next) => {
         const url = req.url ?? ''
         const modulePath = modulePathFor(url)
